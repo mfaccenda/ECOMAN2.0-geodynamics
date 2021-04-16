@@ -90,7 +90,7 @@ subplot(224)
 pcolor(x2d,y2d,div2d)
 shading interp
 colorbar('southoutside')
-axis image
+axis image 
 title('Divergence')
 
 %Save hdf5 file
