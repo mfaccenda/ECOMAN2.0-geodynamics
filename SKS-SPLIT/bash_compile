@@ -1,0 +1,9 @@
+#!/bin/bash
+
+h5pfc savstack.f90 -o savstack
+h5pfc sav2cijkl.f90 -o sav2cijkl
+h5pfc fazi2splitstat.f90 -o fazi2splitstat
+
+mkdir objects
+
+mv *.o objects/
