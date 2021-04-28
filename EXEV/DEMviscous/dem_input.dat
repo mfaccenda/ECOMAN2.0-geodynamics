@@ -1,0 +1,46 @@
+# Deviatoric/Total viscous tensor
+
+  1   # Devmod: when active, compute the deviatoric viscous tensor, rather the total
+
+# Matrix/Inclusions viscosity(ies)
+ 
+  1   # Isotropic: define isotropic viscosity contrast = nu_incl/nu_matrix
+
+  1   # etacontrlogscalemod: when > 1, the viscosity contrasts and increments should be defined in log10  
+
+-3.00d0  # etacontrmin: min viscosity contrast = nu_incl/nu_matrix
+ 3.00d0  # etacontrmax: max viscosity contrast = nu_incl/nu_matrix
+ 1.00d0  # etacontrstp: viscosity contrast increments
+
+# Matrix constant Cij
+   2.00d0   0.00d0   0.00d0   0.00d0   0.00d0   0.00d0
+   0.00d0   2.00d0   0.00d0   0.00d0   0.00d0   0.00d0
+   0.00d0   0.00d0   2.00d0   0.00d0   0.00d0   0.00d0           
+   0.00d0   0.00d0   0.00d0   1.00d0   0.00d0   0.00d0
+   0.00d0   0.00d0   0.00d0   0.00d0   1.00d0   0.00d0
+   0.00d0   0.00d0   0.00d0   0.00d0   0.00d0   1.00d0
+
+# Inclusions constant Cij
+   2.00d0   0.00d0   0.00d0   0.00d0   0.00d0   0.00d0
+   0.00d0   2.00d0   0.00d0   0.00d0   0.00d0   0.00d0
+   0.00d0   0.00d0   2.00d0   0.00d0   0.00d0   0.00d0              
+   0.00d0   0.00d0   0.00d0   1.00d0   0.00d0   0.00d0
+   0.00d0   0.00d0   0.00d0   0.00d0   1.00d0   0.00d0
+   0.00d0   0.00d0   0.00d0   0.00d0   0.00d0   1.00d0 
+
+# Inclusions shape(s)
+ 
+  1   # Set semiaxes lengths in log10 scale. When active, the semiaxes lengths below should be already in log10
+
+# esa(1) esa(2) esa(3)
+  0.00d0 0.00d0 0.00d0   # Min semiaxis lengths of ellipsoidal inclusions
+  3.00d0 3.00d0 0.00d0   # Max semiaxis lengths of ellipsoidal inclusions
+  0.10d0 0.10d0 1.00d0   # Semiaxes increments
+
+# Inclusions volume fraction(s) to be saved in the database
+  0.5d0   # Volsavemin:  min volume fraction (must be multiple of Vstpdem)
+  0.3d0   # Volsavemax:  max volume fraction (must be multiple of Vstpdem)
+  5d-2    # Volsavestep: volume increment    (must be multiple of Vstpdem)
+
+# DEM volume increment
+  5e-3    # Vstpdem

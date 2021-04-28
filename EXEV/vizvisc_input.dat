@@ -1,0 +1,55 @@
+
+# A) INPUT AND OUTPUT DIRECTORIES/FILES
+
+# cijkl_dir: path to directory where to read Cijkl* files !!! remember to put slash at the end
+...
+ 
+# output_dir: path to directory where to save output files !!! remember to put slash at the end
+...
+ 
+   1  # Tinit: initial number of the source Cijkl*.h5 files to be processed
+   1  # Tstep: increment number of the source Cijkl*.h5 files to be processed
+   1  # Tend : final number of the source Cijkl*.h5 files to be processed
+
+# B) DEFINE viscosity contrast and inclusions volume fraction 
+
+  1d-3 # etac: viscosity contrast
+ 0.2d0 # volinc: inclusions volume fraction
+
+# C) VISUALIZE PROPERTIES OF LAGRANGIAN AGGREGATES
+ 
+0  # Lagrangian
+
+0.0  # ln_fse_min:: minimum threshold of ln(fse_max/fse_min) to visualize the following properties
+
+0  # uppermantlemod (when active displays only upper mantle aggregates with ln_fse >= ln_fse_min)
+0  # rocktypemod
+0  # fse3Dmod (when active, allows for plotting the 3D FSE)          
+0  # fseminmod
+0  # fsemaxmod
+
+# D) EULERIAN GRIDDING: INTERPOLATE THE AGGREGATES PROPERTIES TO A GRID
+ 
+0  # Eulerian
+
+# Axis 1 (X-cart or Long)
+  0.0d0  # n1first: (X,Phi)min
+  0.0d0  # n1last : (X,Phi)max
+      1  # nx11: number of nodes  
+
+# Axis 2 (Y-cart or Radial)
+  0.0d0  # n2first: (Y,R)min
+  0.0d0  # n2last : (Y,R)max
+      1  # nx21: number of nodes  
+
+# Axis 3 (Z-cart or Colat)
+  0.0d0  # n3first: (Z,Colat)min
+  0.000  # n3last : (Z,Colat)max
+      1  # nx31: number of nodes  
+
+      0  # radialmod = Vsh^2/Vsv^2
+
+      0  # azimod : azimuthal anisotropy
+  0.0d0  # aziscalex1               
+  0.0d0  # aziscalex2                  
+  0.0d0  # az1scalex3                 

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+h5pfc DEM.f90 -qopenmp -o dem
+
+if [ ! -s objects/ ];then \
+        mkdir objects/;\
+fi;
+
+mv *.o objects/
