@@ -1,0 +1,21 @@
+#!/bin/bash
+
+h5pfc -qopenmp -o drexs \
+        module.f90                      \
+	D-REX_S.f90 			\
+        read_input_file.f90   		\
+        loadsave.f90          		\
+        ../DATABASES/elastic_database.f90  \
+        ../VIZTOMO/spo.f90      	\
+        ../D-REX_M/strainLPO.f90 	\
+	../ext_funct/inverse.f90 \
+	../ext_funct/dsyevc3.f \
+        ../ext_funct/dsyevh3.f \
+	../ext_funct/dsyevq3.f \
+	../ext_funct/dsytrd3.f	      
+
+if [ ! -s objects/ ];then \
+	mkdir objects/;\
+fi;
+	 
+mv *.o objects/

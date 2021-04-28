@@ -1,0 +1,97 @@
+# A) output_name: Output file and directory name
+Atype_ 
+
+# B) Maximum strain
+1.00d0 # strain_max
+
+# C) Define velocity gradient tensor Dij
+0.0d0  # D11
+0.0d0  # D22
+0.0d0  # D33
+1.0d0  # D12
+0.0d0  # D21
+0.0d0  # D13
+0.0d0  # D31
+0.0d0  # D23
+1.0d0  # D32
+
+# D) LPO parameters
+
+     8 # size3: cubic root of total number of grains = size3^3
+
+     1 # rocktype: 1 = Ol + Ens; 2 = Wd + Grt; 4 = Brd + MgO
+
+# Upper mantle: Ol + Ens
+ 
+   7d1 # Xol(1) : fraction of olivine (%)
+ 3.5d0 # stressexp(1)
+ 125d0 # Mob(1)
+ 0.3d0 # chi(1)
+   5d0 # lambda(1)
+1.00d0 # fractdislrock(1) : fraction of def. accommodated by anis. phases
+   1d0 # tau(1,1) [100](010) Olivine
+   2d0 # tau(1,2) [100](001) Olivine
+   3d0 # tau(1,3) [001](010) Olivine
+  1d60 # tau(1,4) [001](100) Olivine
+   1d0 # tau(1,5) [001](100) Enstatite
+     1 # single_crystal_elastic_db(1,1) : Olivine single crystal elastic tensor as in elastic_database.f90
+     2 # single_crystal_elastic_db(1,2) : Enstatite single crystal elastic tensor as in elastic_database.f90
+
+# Upper transition zone: Wd + Grt
+ 
+   6d1 # Xol(2) : fraction of wadsleyite (%)
+ 3.5d0 # stressexp(2) 
+  10d0 # Mob(2)
+ 0.3d0 # chi(2)
+   5d0 # lambda(2)
+1.00d0 # fractdislrock(2) : fraction of def. accommodated by anis. phases
+   5d0 # tau(2,1) [100](001)   Wadsleyite
+   1d0 # tau(2,2) [100](010)   Wadsleyite
+   5d0 # tau(2,3) [100](011)   Wadsleyite
+   5d0 # tau(2,4) [100](021)   Wadsleyite
+   5d0 # tau(2,5) [111](10-1)  Wadsleyite
+   5d0 # tau(2,6) [11_1](101)  Wadsleyite
+   5d0 # tau(2,7) [1_11](10-1) Wadsleyite
+   5d0 # tau(2,8) [1_1_1](101) Wadsleyite
+   5d0 # tau(2,9) [001](010)   Wadsleyite  
+     3 # single_crystal_elastic_db(2,1) : Wadsleyite single crystal elastic tensor as in elastic_database.f90
+     6 # single_crystal_elastic_db(2,2) : Garnet single crystal elastic tensor as in elastic_database.f90
+
+# Lower transition zone: Rw + Grt (no fabric)
+ 
+   6d1 # Xol(3) : fraction of rongwoodite (%)
+     5 # single_crystal_elastic_db(3,1) : Ringwoodite single crystal elastic tensor as in elastic_database.f90
+     6 # single_crystal_elastic_db(3,2) : Garnet single crystal elastic tensor as in elastic_database.f90
+
+# Lower mantle: Brd + MgO 
+ 
+   8d1 # Xol(4) : fraction of bridgmanite (%)
+ 3.0d0 # stressexp(4) 
+  10d0 # Mob(4)
+ 0.3d0 # chi(4)
+   5d0 # lambda(4)
+1.00d0 # fractdislrock(4) : fraction of def. accommodated by anis. phases
+   5d0 # tau(4,1) [100](010)  Bridgmanite
+   5d0 # tau(4,2) [100](001)  Bridgmanite
+   5d0 # tau(4,3) [010](100)  Bridgmanite
+   5d0 # tau(4,4) [010](001)  Bridgmanite
+   1d0 # tau(4,5) [001](100)  Bridgmanite
+   5d0 # tau(4,6) [001](010)  Bridgmanite
+   5d0 # tau(4,7) [001](110)  Bridgmanite
+   5d0 # tau(4,8) [001](-110) Bridgmanite
+   5d0 # tau(4,9) [110](001)  Bridgmanite 
+   5d0 # tau(4,10)[-110](001) Bridgmanite 
+   5d0 # tau(4,11)[110](-110) Bridgmanite 
+   5d0 # tau(4,12)[-110](110) Bridgmanite 
+    15 # single_crystal_elastic_db(4,1) : Bridgmanite single crystal elastic tensor as in elastic_database.f90
+     9 # single_crystal_elastic_db(4,2) : MgO single crystal elastic tensor as in elastic_database.f90
+
+# E) SET OPERATING MODES FOR THE OUTPUT
+ 
+     1 # ptmod : 0 = room P-T; 1 = scale single crystal elastic tensor by P-T conditions defined below
+     3 # eosmod (1 = Dunite; 2 = Hartzburgite; 3 = Pyrolite; 4 = Basalt ; 5 = Pyroxenite)
+   8.0 # pressure (GPa)
+1623.0 # tkelv : temperature (K) 
+  50d0 # fractvoigt : fraction of Voigt average, from 0 % to 100 %. The rest is Reuss average 
+
+     0 # spomod 

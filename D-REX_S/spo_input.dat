@@ -1,0 +1,50 @@
+# Set type of layered SPO model, computed with STILWE                        
+     0  # spograinmod: grain-scale SPO
+     1  # sporockmod: rock-scale SPO
+
+# Volume fractions (%) of rocktypes
+  0.0d0 # volfract(1): Dunite
+ 40.0d0 # volfract(2): Hartzburgite
+ 20.0d0 # volfract(3): Pyrolite
+ 20.0d0 # volfract(4): basalt (MORB)
+ 20.0d0 # volfract(5): Pyroxenite
+
+     0  # meltspomod: fluid-filled cracks
+
+# meltfilename: name of the file with melt content in the domain of the geodynamic model
+dsdm         
+
+# Set constant elastic tensors and density
+
+# Medium 1 (Matrix for DEM) constant Cij
+ 186.25d0  63.30d0  63.30d0  0.00d0  0.00d0  0.00d0
+  63.30d0 186.25d0  63.30d0  0.00d0  0.00d0  0.00d0
+  63.30d0  63.30d0 186.25d0  0.00d0  0.00d0  0.00d0
+   0.00d0   0.00d0   0.00d0 61.48d0  0.00d0  0.00d0
+   0.00d0   0.00d0   0.00d0  0.00d0 61.48d0  0.00d0
+   0.00d0   0.00d0   0.00d0  0.00d0  0.00d0 61.48d0
+
+ 3350d0 # Medium 1 density
+
+# Medium 2 (Inclusions for DEM) constant Cij
+  14.91d0  14.91d0  14.91d0  0.00d0  0.00d0  0.00d0
+  14.91d0  14.91d0  14.91d0  0.00d0  0.00d0  0.00d0
+  14.91d0  14.91d0  14.91d0  0.00d0  0.00d0  0.00d0
+   0.00d0   0.00d0   0.00d0  0.00d0  0.00d0  0.00d0
+   0.00d0   0.00d0   0.00d0  0.00d0  0.00d0  0.00d0
+   0.00d0   0.00d0   0.00d0  0.00d0  0.00d0  0.00d0
+
+ 2400d0 # Medium 2 density
+
+# Set DEM parameters                       
+
+ 1.00d1 #  esa(1) : max    semiaxis length of ellipsoidal inclusions
+ 1.00d1 #  esa(2) : medium semiaxis length of ellipsoidal inclusions
+ 1.00d0 #  esa(3) : min    semiaxis length of ellipsoidal inclusions
+
+ 0.05d0  # Vmax: max volume fraction of the inclusion
+   1d-2  # Vstp: volume increment of the inclusion
+
+# Cracks orientations relative to sigma 1
+ 
+  -45d0  # phi_spo: angle between SPO fabric and max FSE or max compression
