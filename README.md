@@ -1,6 +1,6 @@
 # ECOMAN - Exploring the COnsequences of Mechanical Anisotropy in the maNtle
 
-ECOMAN is a software package to (1) simulate the development of strain-induced mantle fabrics (LPO+SPO) and (2) test the effects of the mechanical (elastic and viscous) anisotropy associated with these fabrics on seismic imaging and mantle convection. 
+ECOMAN is a software package that (i) simulates the development of strain-induced mantle fabrics (LPO+SPO) and (ii) tests the effects of the mechanical (elastic and viscous) anisotropy associated with these fabrics on seismic imaging and mantle convection. 
 
 ECOMAN builds on the original D-REX software [Kaminski et al., 2004], and includes routines from FSTRACK software [Becker et al., 2006] for synthetic SKS splitting calculation, MATLAB scripts from MTEX Toolbox [Mainprice et al., 2011] to plot singleaggregate textures, thermodynamic databases of the density and isotropic elastic moduli for selected rock compositions at relevant  mantle  P-T  conditions  and  generated with MMA_EoS [Chust et al., 2017].
 
