@@ -1,0 +1,23 @@
+<?xml version="1.0" ?>
+<Xdmf xmlns:xi="http://www.w3.org/2001/XInclude" Version="2.0">
+ 
+ <Domain>
+ 
+   <Grid Name="materialSwarm" >
+ 
+      <Time Value="1.98677783" />
+  
+          <Topology Type="POLYVERTEX" NodesPerElement="54622"> </Topology>
+          <Geometry Type="XYZ">
+             <DataItem Format="HDF" NumberType="Float" Precision="8" Dimensions="54622 3">azianis0020.h5:/xyz </DataItem>
+          </Geometry>
+ 
+          <Attribute Type="Vector" Center="Node" Name="Azimuthal Anisotropy">
+             <DataItem Format="HDF" NumberType="Float" Precision="8" Dimensions="54622 3">azianis0020.h5:/Azimuthal Anisotropy</DataItem>
+          </Attribute>
+ 
+   </Grid>
+ 
+ </Domain>
+ 
+</Xdmf>
