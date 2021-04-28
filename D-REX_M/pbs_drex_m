@@ -1,0 +1,20 @@
+#!/bin/bash
+
+#PBS -q sm
+#PBS -N drexm        
+#PBS -l walltime=24:00:00
+#PBS -l nodes=1:ncpus=28     
+#PBS -l mem=200gb
+
+# set path of wroking directory
+cd $PBS_O_WORKDIR
+
+# set number of threads     
+export OMP_NUM_THREADS=28   
+
+# ./drex_m ../cookbooks/2Dcartesian_convection/drexm_input.dat
+# ./drex_m ../cookbooks/2Dpolar_subduction/drexm_input.dat
+# ./drex_m ../cookbooks/2Dpolar_convection/drexm_input.dat
+# ./drex_m ../cookbooks/3Dcartesian_sinkingslab/drexm_input.dat
+# ./drex_m ../cookbooks/3Dspherical_sinkingslab/drexm_input.dat
+# ./drex_m ../cookbooks/3Dspherical_global/drexm_input.dat
