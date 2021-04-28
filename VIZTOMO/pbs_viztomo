@@ -1,0 +1,21 @@
+#!/bin/bash
+
+#PBS -q sm
+#PBS -N viztomo      
+#PBS -l walltime=24:00:00
+#PBS -l nodes=1:ncpus=28   
+#PBS -l mem=200gb
+
+# set path of wroking directory
+cd $PBS_O_WORKDIR
+
+# set number of threads     
+export OMP_NUM_THREADS=28 
+
+# ./viztomo ../cookbooks/2Dcartesian_convection/viztomo_input.dat
+# ./viztomo ../cookbooks/2Dpolar_convection/viztomo_input.dat
+# ./viztomo ../cookbooks/2Dpolar_subduction/viztomo_input.dat
+# ./viztomo ../cookbooks/2Dpolar_subduction/viztomo_input_spo.dat
+# ./viztomo ../cookbooks/3Dcartesian_sinkingslab/viztomo_input.dat
+# ./viztomo ../cookbooks/3Dspherical_sinkingslab/viztomo_input.dat
+# ./viztomo ../cookbooks/3Dspherical_global/viztomo_input.dat

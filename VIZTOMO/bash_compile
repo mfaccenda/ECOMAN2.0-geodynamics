@@ -1,0 +1,23 @@
+#!/bin/bash
+
+h5pfc -qopenmp -o viztomo    \
+	module.f90           \
+	VIZTOMO.f90	     \
+	read_input_file.f90  \
+	lagrangian.f90       \
+	eulerian.f90 	     \
+	spo.f90 	     \
+	loadgrad.f90         \
+	../DATABASES/elastic_database.f90 \
+	../ext_funct/rotvoigt.f90\
+	../ext_funct/inverse.f90 \
+	../ext_funct/dsyevc3.f \
+        ../ext_funct/dsyevh3.f \
+	../ext_funct/dsyevq3.f \
+	../ext_funct/dsytrd3.f	      
+
+if [ ! -s objects/ ];then \
+	mkdir objects/;\
+fi;
+	 
+mv *.o objects/
