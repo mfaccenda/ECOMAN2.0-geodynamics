@@ -12,6 +12,10 @@ ECOMAN is mostly written in Fortran, and where most of the routines are parallel
 
 At the moment ECOMAN requires installation of the Intel Fortran compilers and HDF5 libraries. 
 
+Additional tarballs can be downloaded from the software [website](https://newtonproject.geoscienze.unipd.it/ecoman/). \
+In particular, [DATABASES.tar.gz](https://newtonproject.geoscienze.unipd.it/wp-content/uploads/2021/04/DATABASES.tar.gz) is required for compilation and run of most software and, as such, it should be decompressed and put at the same level as other software directories (i.e., D-REX_M, VIZTOMO, etc.).\
+To run examples, download [cookbooks.tar.gz](https://newtonproject.geoscienze.unipd.it/wp-content/uploads/2021/04/cookbooks.tar.gz) and place it again at the same level as the other main directories.
+
 More detailed information and instructions are provided in the user [manual](https://newtonproject.geoscienze.unipd.it/wp-content/uploads/2021/04/ECOMAN1.0_manual.pdf). 
 
 # Software website
