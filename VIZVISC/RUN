@@ -1,0 +1,6 @@
+#!/bin/bash
+# set number of threads     
+export OMP_NUM_THREADS=28
+
+ ./vizvisc ../cookbooks/2Dpolar_convection/vizvisc_input.dat
+

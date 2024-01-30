@@ -1,0 +1,4 @@
+# set number of threads     
+export OMP_NUM_THREADS=14
+
+./demelastic

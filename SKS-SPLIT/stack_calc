@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# Generate stack of horizontal layers with different elastic tensors (scaled by density) beneath each seismic station 
+#
+
+# Model working directory
+cijkl_dir="$1"
+timestep="$2"
+mode="$3"
+
+# current working directory
+cwd=`pwd`
+
+#
+# Input directories with tensor files for each seismic station
+#
+ss_dir=$cijkl_dir/seismic_stations/
+echo $0: Geodynamic model directory: $cijkl_dir
+echo $0: Seismic stations directory: $ss_dir
+mkdir -p $ss_dir
+rm $ss_dir/*
+
+#Copy stack_input.dat and savstack to model directory
+#cp $cwd/stack_input.dat $cijkl_dir
+cp $cwd/savstack        $cijkl_dir
+
+cd $cijkl_dir
+./savstack $mode $timestep 
+
+mv seismic_station_*.sav   seismic_stations/ 
+mv Surface_coordinates.dat seismic_stations/ 
+
+cd $cwd

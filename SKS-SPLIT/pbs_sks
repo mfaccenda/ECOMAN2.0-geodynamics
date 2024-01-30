@@ -2,14 +2,56 @@
 
 #PBS -q sm
 #PBS -N sks          
-#PBS -l walltime=48:00:00
-#PBS -l nodes=1:ncpus=1   
-#PBS -l mem=64gb   
+#PBS -l walltime=24:00:00
 
-# set path of wroking directory
+# Use this to run only stack_calc (comment bottom line)
+# PBS -l nodes=1:ppn=1:ncpus=1 
+
+# Use this to run both codes or only split_calc (comment stack_calc run)
+#PBS -l select=1:ncpus=28:mpiprocs=28:ompthreads=1:mem=64GB
+
+# set path of working directory
 cd $PBS_O_WORKDIR
 
 # set number of threads     
 export OMP_NUM_THREADS=1 
 
-./calc_split_from_flow_model
+#Define control parameters
+cijkl_dir=/storage2/unipd/faccenda/ECOMAN-16Oct2023/cookbooks/3Dcartesian_sinkingslab/out # where is the Cijkl*.h5 file to be loaded?  
+
+timestep=0020                   # Cijkl*.h5 file number with 4 digits: e.g. 40 must be 0040
+
+mode=0                          # 0: all layers 1: remove lithosphere 2: remove deep layers
+
+split_dir=splitting	        # Define sub-directory of cijkl_dir where splitting parameters will be saved 
+
+avg=0                           # 0: use true seismograms from reflectivity 
+                                # 1: based on averaged tensors
+
+verbose=0                       # verbosity level
+
+save_bascan=1                   # save the actual back-azimuth dependence?
+
+idisp=15                        # way to compute splitting, 
+                                # 15: Levin and Park 1999
+                                # 25: Menke
+
+varpar=1                        # depth variable parameters
+
+density=3.353                   # reference density
+
+incidence=5                     # incidence angle for SKS
+
+bottom=400			# Set depth of stack of layers in km
+
+lith_bot=100                    # calculate splitting due to layers below this depth everywhere if mode = 1 
+
+execute=1                       # set to zero for debugging
+
+#Generate stack of horizontal layers with different elastic tensors (scaled by density) beneath each seismic station 
+./stack_calc $cijkl_dir $timestep $mode 
+
+wait
+
+#Compute splitting parameters averaged over back-azimuth
+mpiexec  -np 28  ./split_calc $cijkl_dir $timestep $mode $split_dir $avg $verbose $save_bascan $idisp $varpar $density $incidence $bottom $lith_bot $execute

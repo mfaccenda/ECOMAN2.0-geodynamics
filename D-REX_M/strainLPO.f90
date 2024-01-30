@@ -2,7 +2,7 @@
  !! ---------------------------------------------------------------------------
  !! ---------------------------------------------------------------------------
  !!
- !!    Copyright (c) 2018-2020, Universita' di Padova, Manuele Faccenda
+ !!    Copyright (c) 2018-2023, Universita' di Padova, Manuele Faccenda
  !!    All rights reserved.
  !!
  !!    This software package was developed at:
@@ -43,13 +43,6 @@
  !! ---------------------------------------------------------------------------
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!                                                                        !!!
-!!! Most of the subroutines in this file are present in the original D-REX !!!
-!!!                                                                        !!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!! subroutine STRAIN - Calculation of strain along pathlines              !!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -59,14 +52,13 @@
    USE omp_lib
 
    IMPLICIT NONE
-   INTEGER :: m,i,j,k,ll,j1,j2,nnum,N_strain,tid,n,n1,n2,nrot
-   INTEGER , DIMENSION(1) :: ti ! reordering array
+   INTEGER :: m,j,j1,j2,nnum,N_strain,tid
    ! loop counters
 
-   DOUBLE PRECISION :: dt_strain,fractdisl,dt_straintot,dt_straindiff,theta
+   DOUBLE PRECISION :: dt_strain,fractdisl,dt_straintot,dt_straindiff
    ! time spent on a given point of the streamline and DRex time step
 
-   DOUBLE PRECISION, DIMENSION(3,3) :: fse,fsei,fse0,fsediff,Q,fseacs,fseacs0,lx,ex
+   DOUBLE PRECISION, DIMENSION(3,3) :: fse,fsei,fse0,fsediff,Q,fseacs,fseacs0
    DOUBLE PRECISION, DIMENSION(3) :: evals,evals0
    ! local finite deformation tensor
 
@@ -155,7 +147,7 @@
       odfi = odfi/SUM(odfi)
       
       !!! Minor phase
-      IF(rocktype(m) == 1) THEN 
+      IF(rocktype(m) == 1 .AND. Xol(1) < 1d0) THEN 
 
          kodf1_ens = dotodf_ens*dt_strain*epsnot(tid)
          kac1_ens = dotacs_ens*dt_strain*epsnot(tid)
@@ -194,7 +186,7 @@
       odfi = odfi/SUM(odfi)
 
       !!! Minor phase
-      IF(rocktype(m) == 1) THEN 
+      IF(rocktype(m) == 1 .AND. Xol(1) < 1d0) THEN 
 
          kodf2_ens = dotodf_ens*dt_strain*epsnot(tid)
          kac2_ens = dotacs_ens*dt_strain*epsnot(tid)
@@ -234,7 +226,7 @@
       odfi = odfi/SUM(odfi)
 
       !!! Minor phase
-      IF(rocktype(m) == 1) THEN 
+      IF(rocktype(m) == 1 .AND. Xol(1) < 1d0) THEN 
 
          kodf3_ens = dotodf_ens*dt_strain*epsnot(tid)
          kac3_ens = dotacs_ens*dt_strain*epsnot(tid)
@@ -272,7 +264,7 @@
       odf(m,:) = odf(m,:)/SUM(odf(m,:))
 
       !!! Minor phase
-      IF(rocktype(m) == 1) THEN 
+      IF(rocktype(m) == 1 .AND. Xol(1) < 1d0) THEN 
 
          kodf4_ens = dotodf_ens*dt_strain*epsnot(tid)
          kac4_ens = dotacs_ens*dt_strain*epsnot(tid)
@@ -347,7 +339,7 @@
      END DO
 
      !!! Minor phase
-     IF(rocktype(m) == 1) THEN
+     IF(rocktype(m) == 1 .AND. Xol(1) < 1d0) THEN 
 
         DO j = 1 , size  
            !Q = f1*f2' --> First rotate forward with f1, then rotate backward with f2
@@ -372,13 +364,16 @@
    END DO
 !!! End Main strain cycle
 
-   IF(fsemod == 0 .AND. (isnan(acs(1,1,1,m)) .OR. isnan(odf(m,1)) .OR. isnan(acs_ens(1,1,1,m)) .OR. isnan(odf_ens(m,1)))) THEN
+   !IF(fsemod == 0 .AND. (isnan(acs(1,1,1,m)) .OR. isnan(odf(m,1)) .OR. isnan(acs_ens(1,1,1,m)) .OR. isnan(odf_ens(m,1)))) THEN
+   IF(fsemod == 0) THEN
+   IF((isnan(acs(1,1,1,m)) .OR. isnan(odf(m,1)) .OR. isnan(acs_ens(1,1,1,m)) .OR. isnan(odf_ens(m,1)))) THEN
       print *,"acs or odf Nan at",m,rocktype(m),mx1(m),mx2(m),acs(1,1,1,m),odf(m,1)
       acs(:,:,:,m) = acs0
       acs_ens(:,:,:,m) = acs0
       odf(m,:) = 1d0/REAL(size3**3)
       odf_ens(m,:) = odf(m,:)
       fse = 0d0; fse(1,1) = 1d0; fse(2,2) = 1d0 ; fse(3,3) = 1d0
+   END IF
    END IF
 
 !!! Update aggregate fse   
@@ -422,10 +417,13 @@
      !write(*,'(3e17.8)'),evects
 
      !!! Reset LPO and FSE of aggregate
-     acs(:,:,:,m) = acs0
-     acs_ens(:,:,:,m) = acs0
-     odf(m,:) = 1d0/REAL(size3**3)
-     odf_ens(m,:) = odf(m,:)
+     if(sbfmod == 0 ) then
+        acs(:,:,:,m) = acs0
+        acs_ens(:,:,:,m) = acs0
+        odf(m,:) = 1d0/REAL(size3**3)
+        odf_ens(m,:) = odf(m,:)
+     end if
+
      fse = 0d0; fse(1,1) = 1d0; fse(2,2) = 1d0 ; fse(3,3) = 1d0
 
      !Remove aggregate
@@ -464,8 +462,7 @@
 
    DOUBLE PRECISION, DIMENSION(size) :: dotodf,dotodf_ens,odfi,odfi_ens,rt,rt_ens
    DOUBLE PRECISION, DIMENSION(size,3,3) :: dotacs,dotacs_ens,acsi,acsi_ens
-   DOUBLE PRECISION :: Emean,rt1,rt2,rt3,rt4,rt5,Emean_ens,rt0_ens
-   !! surface averaged aggregate NRJ
+   DOUBLE PRECISION :: Emean,Emean_ens,rt0_ens
    !! dislocation density for each slip system
 
    DOUBLE PRECISION :: gam0,alpha_x,alpha_z
@@ -489,10 +486,8 @@
    DOUBLE PRECISION, DIMENSION(3,3) :: lx,ex
    ! dimensionless velocity gradient and strain rate tensors
 
-   DOUBLE PRECISION, DIMENSION(3,3) :: acsnsp,acssd,acssd0
    DOUBLE PRECISION, DIMENSION(3,3) :: acsnsp011,acsnsp021,acsnsp101,acsnsp110,acsnsp10_1,acsnsp_110
    DOUBLE PRECISION, DIMENSION(3,3) :: acssd110,acssd111,acssd11_1,acssd1_11,acssd1_1_1,acssd1_10
-   DOUBLE PRECISION, DIMENSION(3,3) :: acssd_2110,acssd1_210,acssd11_20
    ! rotated direction cosine matrix for normal to slip plane and slip direction
 
 !!! Dimensionless strain rate and velocity gradient tensors
@@ -644,6 +639,52 @@ ELSE IF(rocktype(m) == 4) THEN
 
    maxsp = 12
 
+!!! Post-Pervoskite
+!!! a = 2.471 | b = 8.091 | c = 6.110 (at 118 GPa, 300 K)
+!!! orthorombic
+ELSE IF(rocktype(m) == 5) THEN
+
+   alpha_x = 73.0173d0
+   !alpha_x = 16.9827d0
+
+   !Find direction of normal to slip plane (110): rotation about the z-axis by
+   !-alpha_x
+   !degrees, nsp orientation is [100]
+   acsnsp110 = 0d0
+   CALL rot3D(acsi(i,:,:),acsnsp110,acsi(i,3,:), alpha_x)
+
+   !Find direction of normal to slip plane (1_10): rotation about the z-axis by
+   !alpha_x
+   !degrees, nsp orientation is [100]
+   acsnsp_110 = 0d0
+   CALL rot3D(acsi(i,:,:),acsnsp_110,acsi(i,3,:),-alpha_x)
+
+   !!! From Mainprice et al., 2008. EPSL
+   DO i1 = 1,3 ; DO i2 = 1,3
+      !!! [100](010)
+      bigi(1) = bigi(1)+ex(i1,i2)*acsi(i,1,i1)*acsi(i,2,i2)
+      !!! [100](001)
+      bigi(2) = bigi(2)+ex(i1,i2)*acsi(i,1,i1)*acsi(i,3,i2)
+      !!! [010](100)
+      bigi(3) = bigi(3)+ex(i1,i2)*acsi(i,2,i1)*acsi(i,1,i2)
+      !!! [010](001)
+      bigi(4) = bigi(4)+ex(i1,i2)*acsi(i,2,i1)*acsi(i,3,i2)
+      !!! [001](100)
+      bigi(5) = bigi(5)+ex(i1,i2)*acsi(i,3,i1)*acsi(i,1,i2)
+      !!! [001](010)
+      bigi(6) = bigi(6)+ex(i1,i2)*acsi(i,3,i1)*acsi(i,2,i2)
+      !!! [001](110)
+      bigi(7) = bigi(7)+ex(i1,i2)*acsi(i,3,i1)*acsnsp110(1,i2)
+      !!! [001](-110)
+      bigi(8) = bigi(8)+ex(i1,i2)*acsi(i,3,i1)*acsnsp_110(1,i2)
+      !!! [110](1-10)
+      bigi(9) = bigi(9)+ex(i1,i2)*acsnsp110(1,i1)*acsnsp110(2,i2)
+      !!! [-110](110)
+      bigi(10) = bigi(10)+ex(i1,i2)*acsnsp_110(1,i1)*acsnsp_110(2,i2)
+   ENDDO ; ENDDO
+
+   maxsp = 10
+
 END IF
 
 !!! Quotients I/tau
@@ -709,6 +750,21 @@ ELSE IF(rocktype(m) == 4) THEN
                     gam(10)*acsnsp_110(1,i1)*acsi(i,3,i2) + &     !!! [-110](001)
                     gam(11)*acsnsp110(1,i1)*acsnsp_110(1,i2) + &  !!! [110](-110)
                     gam(12)*acsnsp_110(1,i1)*acsnsp110(1,i2))     !!! [-110](110)
+   END DO ; END DO
+
+ELSE IF(rocktype(m) == 5) THEN
+
+   DO i1 = 1,3 ; DO i2 = 1,3
+      g(i1,i2)=2d0*(gam(1)*acsi(i,1,i1)*acsi(i,2,i2) + &          !!! [100](010)
+                    gam(2)*acsi(i,1,i1)*acsi(i,3,i2) + &          !!! [100](001)
+                    gam(3)*acsi(i,2,i1)*acsi(i,1,i2) + &          !!! [010](100)
+                    gam(4)*acsi(i,2,i1)*acsi(i,3,i2) + &          !!! [010](001)
+                    gam(5)*acsi(i,3,i1)*acsi(i,1,i2) + &          !!! [001](100)
+                    gam(6)*acsi(i,3,i1)*acsi(i,2,i2) + &          !!! [001](010)
+                    gam(7)*acsi(i,3,i1)*acsnsp110(1,i2) + &       !!! [001](110)
+                    gam(8)*acsi(i,3,i1)*acsnsp_110(1,i2) + &      !!! [001](-110)
+                    gam(9)*acsnsp110(1,i1)*acsnsp110(2,i2) + &    !!! [110](1_10)
+                    gam(10)*acsnsp_110(1,i1)*acsnsp_110(2,i2))    !!! [-110](110)
    END DO ; END DO
 
 END IF
@@ -778,7 +834,7 @@ END IF
 
 !!! ENSTATITE
 !!! Minor phase only for upper mantle (ol + ens)
-   IF(rocktype(m) == 1) THEN
+   IF(rocktype(m) == 1 .AND. Xol(1) < 1d0) THEN
 
    DO i=1,size
 
@@ -860,45 +916,5 @@ END IF
    END SUBROUTINE deriv
    
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!! Subroutine rot 3D - direction cosine matrix 3D rotation around given axis!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE rot3D(acsold,acsnew,a,angle0)
-
-   USE comvar
-   USE omp_lib
-
-   IMPLICIT NONE
-
-   DOUBLE PRECISION :: angle,angle0
-   DOUBLE PRECISION, DIMENSION(3) :: a
-   DOUBLE PRECISION, DIMENSION(3,3) :: acsold,acsnew,acsrot
-
-   !!! angle must be in radians
-   angle = angle0/180d0*pi          
-
-   acsnew = 0d0 ; acsrot = 0d0
-
-   !!! Rotations are clockwise when the axis points toward the observer,
-   !!! right handed coordinate system. 
-   !!! Euler-Rodrigues's formula for rotation of a vector around an axis
-
-   acsrot(1,1)= cos(angle) + (1-cos(angle))*a(1)*a(1)
-   acsrot(1,2)= (1-cos(angle))*a(1)*a(2) - sin(angle)*a(3)
-   acsrot(1,3)= (1-cos(angle))*a(1)*a(3) + sin(angle)*a(2)
-   acsrot(2,1)= (1-cos(angle))*a(2)*a(1) + sin(angle)*a(3)
-   acsrot(2,2)= cos(angle) + (1-cos(angle))*a(2)*a(2)
-   acsrot(2,3)= (1-cos(angle))*a(2)*a(3) - sin(angle)*a(1)
-   acsrot(3,1)= (1-cos(angle))*a(3)*a(1) - sin(angle)*a(2)
-   acsrot(3,2)= (1-cos(angle))*a(3)*a(2) + sin(angle)*a(1)
-   acsrot(3,3)= cos(angle) + (1-cos(angle))*a(3)*a(3)
-
-   acsnew = MATMUL(acsold,acsrot)
-
-   END SUBROUTINE rot3D
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

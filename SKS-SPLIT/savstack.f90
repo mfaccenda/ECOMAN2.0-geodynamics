@@ -118,9 +118,9 @@ DO i = 1, iargc()
     if(i==2) dt_str = arg
 END DO
 
-!!! Open input file sks_input.dat
+!!! Open input file stack_input.dat
 
-OPEN(15,file="sks_input.dat")
+OPEN(15,file="stack_input.dat")
 
 !!! Read parameters for splitting
 !Input files directory
@@ -128,7 +128,7 @@ write(*,*)
 write(*,"(a)"),'********************************************************'
 write(*,"(a)"),'********************************************************'
 write(*,*)
-write(*,"(a,a)"),' READING INPUT FILE sks_input.dat '
+write(*,"(a,a)"),' READING INPUT FILE stack_input.dat '
 write(*,*)
 call read_par_int(15,nsx1)
 call read_par_int(15,nsx3)
@@ -250,8 +250,11 @@ DO m = 1, marknum
     Sav(4,5,m) = Xsave(21,m)
     Sav(5,4,m) = Xsave(21,m)
 
+    !Convert density from kg/m^3 to g/cm^3
+    rhom(m) = rhom(m)/1000.0 
+
     !Cij (GPa) / rho (g/cm^3)
-    Sav(:,:,m) = Sav(:,:,m) *1000d0/rhom(m)
+    Sav(:,:,m) = Sav(:,:,m) / rhom(m)
 
 END DO
 
@@ -390,11 +393,11 @@ INTEGER, DIMENSION(:), ALLOCATABLE :: map_idx0,map_idx
 DOUBLE PRECISION :: thetadist,phidist,centralangle,greatcircledist,t1,t2,dphi,m1,m3,depth1
 
 INTEGER, DIMENSION(:), ALLOCATABLE :: depth2
-DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: rd,rd0,depth0,depth,my,wt      
+DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: rd,rd0,depth0,depth,my,wt,rhotmp      
   
 ALLOCATE(map_idx0(maxlayers),map_idx(maxlayers),rd0(maxlayers),rd(maxlayers))
 ALLOCATE(depth0(maxlayers),depth(maxlayers),depth2(maxlayers),my(maxlayers))
-ALLOCATE(Savtmp(6,6,maxlayers),wt(maxlayers))
+ALLOCATE(Savtmp(6,6,maxlayers),rhotmp(maxlayers),wt(maxlayers))
 ALLOCATE(X1s(seismo_station_num),X3s(seismo_station_num))
 
 !Save surface coordinates
@@ -418,7 +421,7 @@ do i3=1,nsx3
 do i1=1,nsx1               
    s = i1 +(i3-1)*nsx1
    i = 0 ; np = 0
-   Savtmp = 0d0; rd0 = 0d0; my = 0d0; map_idx0 = 0
+   Savtmp = 0d0; rd0 = 0d0; my = 0d0; map_idx0 = 0; rhotmp = 0
 
    !Find near markers
    DO m=1,marknum
@@ -493,13 +496,15 @@ do i1=1,nsx1
    end do   
   
    !Check for markers with vertical distance < minlayer, and assign depth,Sav
-   depth = 0d0; Savtmp = 0d0; wt = 0d0  
-   i = np
-   k = 1
-   j = 1 
+   depth = 0d0; Savtmp = 0d0; wt = 0d0; rhotmp = 0d0 
+   i = np !Total number of poont below seismic station
+   k = 1  !Layer counter
+   j = 1  !Point counter
    depth(k) = depth0(j)*rd(j)
    Savtmp(:,:,k) = Sav(:,:,map_idx(j))*rd(j)
+   rhotmp(k) = rhom(map_idx(j))*rd(j) ! in g/cm^3
    wt(k) = rd(j)
+   !Loop over i=np points below seismic stations
    do j=2,i   
       if(ABS(depth0(k)-depth0(j)) <= minlayer) then
         !if(s==1) print *,'Merge',k,j,depth0(k),depth0(j)
@@ -509,25 +514,30 @@ do i1=1,nsx1
         depth(k) = depth(k) + depth0(j)*rd(j)
         !Sav average
         Savtmp(:,:,k) = Savtmp(:,:,k) + Sav(:,:,map_idx(j))*rd(j)
+        rhotmp(k) = rhotmp(k) + rhom(map_idx(j))*rd(j) ! in g/cm^3
         wt(k) = wt(k) + rd(j)
         !If last j point, then normalize
         if(j==i) then
            depth(k) = depth(k)/wt(k)
            Savtmp(:,:,k) = Savtmp(:,:,k)/wt(k)
+           rhotmp(k) = rhotmp(k)/wt(k)
         end if 
       else    
         depth(k) = depth(k)/wt(k)
         Savtmp(:,:,k) = Savtmp(:,:,k)/wt(k)
+        rhotmp(k) = rhotmp(k)/wt(k)
         k = k + 1 
         !Last point
         if(j==i) then
            depth(k) = depth0(j)
            Savtmp(:,:,k)=Sav(:,:,map_idx(j))
+           rhotmp(k) = rhom(map_idx(j))
            exit  
         else
            depth0(k)=depth0(j)
            depth(k) = depth0(j)*rd(j)
            Savtmp(:,:,k)=Sav(:,:,map_idx(j))*rd(j)
+           rhotmp(k)=rhom(map_idx(j))*rd(j) ! in g/cm^3
            wt(k) = rd(j)
         end if 
       end if
@@ -558,6 +568,7 @@ do i1=1,nsx1
    open(99,file=str,status='replace')
    !Saving upper right of Sav (21 matrix elements) because of tensor symmetry
    write(99,"(1000(1pi8))") depth2(1:np)
+   write(99,1) rhotmp(1:np)
 
    !Rotate tensor such that C22 is parallel to Y
    !This is because later anicake will rotate the tensors around 

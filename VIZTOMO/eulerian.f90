@@ -2,7 +2,7 @@
  !! ---------------------------------------------------------------------------
  !! ---------------------------------------------------------------------------
  !!
- !!    Copyright (c) 2018-2020, Universita' di Padova, Manuele Faccenda
+ !!    Copyright (c) 2018-2023, Universita' di Padova, Manuele Faccenda
  !!    All rights reserved.
  !!
  !!    This software package was developed at:
@@ -71,6 +71,11 @@ DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: dVp,dVs,Vp,Vs,E_chi,G,Vpref,Vsref
 DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: Rpp,Rps,Tpp,Tps,ERpp,ERps,ETpp,ETps
 DOUBLE PRECISION, DIMENSION(:,:), ALLOCATABLE :: vertices,azimuthal,xyz 
 DOUBLE PRECISION, DIMENSION(:,:,:), ALLOCATABLE :: Savref
+
+!PSI 
+INTEGER :: num_nodes_in_longitude, num_nodes_in_latitude, num_nodes_in_radial,tf_density_normalized
+DOUBLE PRECISION :: model_radius_km, long_origin_deg, lat_origin_deg, rotation_from_north_deg
+DOUBLE PRECISION :: min_long_deg, min_lat_deg, min_elevation_km, max_long_deg, max_lat_deg, max_elevation_km
 
 CHARACTER (500) :: filename,filenamexmf
 CHARACTER (len=*) :: cijkl_dir,output_dir
@@ -179,7 +184,35 @@ if(cartspher==2) then
    end if
 
 end if
-      
+
+!Rotate elastic tensors in local/radial reference frame       
+IF(1==0 .AND. cartspher == 2) THEN
+
+   !$omp parallel & 
+   !$omp shared(Sav,mx1,mx3) &
+   !$omp private(m,phi1,theta,phi2,acs) &    
+   !$omp firstprivate(cartspher,pi)
+   !$omp do schedule(guided,8)
+   DO m = 1,marknum
+
+      !Rotate the elastic tensor back with respect to colat (X3(i3)) around X
+      !axis
+      phi1 = 0d0 ; theta = -mx3(m) ; phi2 = -mx1(m) + pi*1.5d0
+
+      !Transform Euler angles into direction cosine matrix
+      CALL rotmatrixZXZ(phi1,theta,phi2,acs)
+
+      !Rotate with respect to local reference frame
+      !CALL tensorrot_aggr(m,acs) !Rotate
+
+
+   END DO
+   !$omp end do
+   !$omp end parallel
+
+END IF
+
+
 !!! Interpolate aggregates elastic tensor to the tomographic model grid by (bi-/tri-)linear interpolation
 CALL mark2node
 
@@ -447,60 +480,76 @@ IF(specfem3Dmod > 0) THEN
 
 END IF
 
-IF(syntomomod > 0) THEN
+IF(psitomomod > 0) THEN
 
-   print *,' Save input file for SYNTOMO'            
+   print *,' Save input file for PSI'            
    print *,''
    
    ! Create a new file using default properties.
-   filename = str2//'syntomo'//dt_str4//'.h5'
+   filename = str2//'psitomo'//dt_str4//'.dat'
   
-   !Initialize FORTRAN interface.
-   CALL H5open_f (error)
+   OPEN(unit = 10, access = "sequential", action = "write", &
+        status = "replace", file = filename, form = "formatted") 
 
-   CALL H5Fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, error)
+   long_origin_deg = (n1first + n1last)/2.0d0*rad2deg 
+   model_radius_km = 6371d0 !Earth's radius                 
+   lat_origin_deg  = 90.0d0 - (n3first + n3last)/2.0d0*rad2deg  
+   rotation_from_north_deg = 0.0d0
+   num_nodes_in_longitude = nx11 
+   num_nodes_in_radial = nx21
+   num_nodes_in_latitude = nx31 
+   min_long_deg = n1first*rad2deg 
+   max_long_deg = n1last*rad2deg 
+   min_lat_deg = 90.0d0 - n3last*rad2deg 
+   max_lat_deg = 90.0d0 - n3first*rad2deg 
+   min_elevation_km = n2first/1d3 - 6371d0 
+   max_elevation_km = n2last/1d3 - 6371d0
+   tf_density_normalized = 0
 
-   CALL loadsave_double(0,1,file_id,nx11,H5T_NATIVE_DOUBLE, X1,'X1',1) ! x axis
-   CALL loadsave_double(0,1,file_id,nx21,H5T_NATIVE_DOUBLE, X2,'X2',1) ! y axis
-   CALL loadsave_double(0,1,file_id,nx31,H5T_NATIVE_DOUBLE, X3,'X3',1) ! z axis
-   CALL loadsave_double(0,1,file_id,nodenum*yyy,H5T_NATIVE_DOUBLE,Rhon,'Rho',1)
+   !Headers
+   write(10,'(*(e12.5, ", "))') model_radius_km, long_origin_deg, lat_origin_deg, rotation_from_north_deg 
+   write(10,'(*(g0, ", "))') num_nodes_in_longitude, num_nodes_in_latitude, num_nodes_in_radial        
+   write(10,'(*(e12.5, ", "))') min_long_deg, min_lat_deg, min_elevation_km, max_long_deg, max_lat_deg, max_elevation_km
+   write(10,'(*(g0, ", "))') tf_density_normalized
+   !Coordinates, elastic moduli, density
+   !DO yyy=1,yinyang
+   yyy = 1 ! not active for global seismology
+   DO i2=1,nx21
+   DO i3=nx31,1,-1 !Reverse order for onversion from colatitude (N-->S) to latitude (S-->N)
+   DO i1=1,nx11
 
-   ALLOCATE(X1save(21,nodenum*yyy))
-   DO m=1,nodenum*yyy
-      !Save elastic tensor: only 21 elastic moduli
-       X1save(1,m)  = Savn(1,1,m)
-       X1save(2,m)  = Savn(2,2,m)
-       X1save(3,m)  = Savn(3,3,m)
-       X1save(4,m)  = Savn(2,3,m)
-       X1save(5,m)  = Savn(1,3,m)
-       X1save(6,m)  = Savn(1,2,m)
-       X1save(7,m)  = Savn(4,4,m)
-       X1save(8,m)  = Savn(5,5,m)
-       X1save(9,m)  = Savn(6,6,m)
-       X1save(10,m) = Savn(1,4,m)
-       X1save(11,m) = Savn(2,5,m)
-       X1save(12,m) = Savn(3,6,m)
-       X1save(13,m) = Savn(3,4,m)
-       X1save(14,m) = Savn(1,5,m)
-       X1save(15,m) = Savn(2,6,m)
-       X1save(16,m) = Savn(2,4,m)
-       X1save(17,m) = Savn(3,5,m)
-       X1save(18,m) = Savn(1,6,m)
-       X1save(19,m) = Savn(5,6,m)
-       X1save(20,m) = Savn(4,6,m)
-       X1save(21,m) = Savn(4,5,m)
-   END DO
+      gi = nodenum*(yyy-1) + i1 + (i2-1)*y + (i3-1)*z
+      
+      if(tf_density_normalized .EQ. 0) then
 
-   dum_int(1)=21
-   dum_int(2)=nodenum*yyy
-   CALL loadsave_double(0,2,file_id,dum_int(1:2),H5T_NATIVE_DOUBLE,X1save,'Sav',1)
-   DEALLOCATE(X1save)
+      write(10,'(*(e12.5, ", "))') X1(i1)*rad2deg, 90.0d0 - X3(i3)*rad2deg, X2(i2)/1d3 - model_radius_km,&
+      Savn(1,1,gi),Savn(1,3,gi),Savn(1,2,gi),Savn(1,4,gi),Savn(1,6,gi),Savn(1,5,gi),&
+                   Savn(3,3,gi),Savn(3,2,gi),Savn(3,4,gi),Savn(3,6,gi),Savn(3,5,gi),&
+                                Savn(2,2,gi),Savn(2,4,gi),Savn(2,6,gi),Savn(2,5,gi),&
+                                             Savn(4,4,gi),Savn(4,6,gi),Savn(4,5,gi),&
+                                                          Savn(6,6,gi),Savn(6,5,gi),&
+                                                                       Savn(5,5,gi),&
+                                                                           Rhon(gi)  
 
-   !Terminate access to the file.
-   CALL H5Fclose_f(file_id, error)
+      else
 
-   CALL H5close_f(error)
-  
+      write(10,'(*(e12.5, ", "))') X1(i1)*rad2deg, 90.0d0 - X3(i3)*rad2deg, X2(i2)/1d3 - model_radius_km,&
+      Savn(1,1,gi)*1.0d9/Rhon(gi),Savn(1,3,gi)*1.0d9/Rhon(gi),Savn(1,2,gi)*1.0d9/Rhon(gi),& 
+      Savn(1,4,gi)*1.0d9/Rhon(gi),Savn(1,6,gi)*1.0d9/Rhon(gi),Savn(1,5,gi)*1.0d9/Rhon(gi),&
+                                  Savn(3,3,gi)*1.0d9/Rhon(gi),Savn(3,2,gi)*1.0d9/Rhon(gi),& 
+      Savn(3,4,gi)*1.0d9/Rhon(gi),Savn(3,6,gi)*1.0d9/Rhon(gi),Savn(3,5,gi)*1.0d9/Rhon(gi),&
+                                                              Savn(2,2,gi)*1.0d9/Rhon(gi),& 
+      Savn(2,4,gi)*1.0d9/Rhon(gi),Savn(2,6,gi)*1.0d9/Rhon(gi),Savn(2,5,gi)*1.0d9/Rhon(gi),&
+      Savn(4,4,gi)*1.0d9/Rhon(gi),Savn(4,6,gi)*1.0d9/Rhon(gi),Savn(4,5,gi)*1.0d9/Rhon(gi),&
+                                  Savn(6,6,gi)*1.0d9/Rhon(gi),Savn(6,5,gi)*1.0d9/Rhon(gi),&
+                                                              Savn(5,5,gi)*1.0d9/Rhon(gi)
+
+      end if
+         
+   END DO;END DO;END DO
+
+   CLOSE(10)
+
 END IF
 
 !!! Rotate tensor toward Z axis direction if polar/spherical coordinates
@@ -1858,7 +1907,7 @@ DO i=1,nodenum
      fsen(i)=fsen(i)/wt(i)
      gi=gi+1
   ELSE
-     print *,'Empty node:',i
+     IF(reflectmod .EQ. 0) print *,'Empty node:',i
   END IF
 END DO
 
@@ -2061,7 +2110,7 @@ do i=1,nodenum*yinyang
      fsen(i)=fsen(i)/wt(i)
      gi=gi+1
   ELSE
-     print *,'Empty node:',i
+     if(reflectmod .EQ. 0) print *,'Empty node:',i
   end if
 end do
 
@@ -2231,68 +2280,6 @@ END IF
 RETURN
 
 END SUBROUTINE mark2node
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!! subroutine rotmatrix, build rotation matrix                            !!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE rotmatrixZXZ(phi1,theta,phi2,acs)
-
-   USE comvar
-
-   IMPLICIT NONE
-
-   DOUBLE PRECISION :: phi1,theta,phi2
-   DOUBLE PRECISION, DIMENSION(3,3) :: acs
-
-   !Transform Euler angles into direction cosine matrix
-   !Z-X-Z: Euler angles in radians
-   acs(1,1)=COS(phi2)*COS(phi1)-COS(theta)*SIN(phi1)*SIN(phi2)
-   acs(2,1)=COS(phi2)*SIN(phi1)+COS(theta)*COS(phi1)*SIN(phi2)
-   acs(3,1)=SIN(phi2)*SIN(theta)
-
-   acs(1,2)=-SIN(phi2)*COS(phi1)-COS(theta)*SIN(phi1)*COS(phi2)
-   acs(2,2)=-SIN(phi2)*SIN(phi1)+COS(theta)*COS(phi1)*COS(phi2)
-   acs(3,2)=COS(phi2)*SIN(theta)
-
-   acs(1,3)=SIN(theta)*SIN(phi1)
-   acs(2,3)=-SIN(theta)*COS(phi1)
-   acs(3,3)=COS(theta)
-            
-   RETURN
-
-   END SUBROUTINE rotmatrixZXZ      
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!! subroutine rotmatrix, build rotation matrix                            !!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE rotmatrixZYZ(phi1,theta,phi2,acs)
-
-   USE comvar
-
-   IMPLICIT NONE
-
-   DOUBLE PRECISION :: phi1,theta,phi2
-   DOUBLE PRECISION, DIMENSION(3,3) :: acs
-
-   !Transform Euler angles into direction cosine matrix
-   !Z-X-Z: Euler angles in radians
-   acs(1,1)=COS(phi2)*COS(phi1)*COS(theta)-SIN(phi1)*SIN(phi2)
-   acs(2,1)=COS(phi1)*SIN(phi2)+COS(theta)*COS(phi2)*SIN(phi1)
-   acs(3,1)=-COS(phi2)*SIN(theta)
-
-   acs(1,2)=-SIN(phi1)*COS(phi2)-COS(theta)*SIN(phi2)*COS(phi1)
-   acs(2,2)=COS(phi2)*COS(phi1)-COS(theta)*SIN(phi1)*SIN(phi2)
-   acs(3,2)=SIN(phi2)*SIN(theta)
-
-   acs(1,3)=SIN(theta)*COS(phi1)
-   acs(2,3)=-SIN(theta)*SIN(phi1)
-   acs(3,3)=COS(theta)
-            
-   RETURN
-
-   END SUBROUTINE rotmatrixZYZ      
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

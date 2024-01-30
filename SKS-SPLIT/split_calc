@@ -1,0 +1,371 @@
+#!/bin/bash
+#
+# compute splitting from a flow model. this is a simplified version of predict_splitting and such
+#
+#
+
+# Control parameters defined in pbs_sks 
+cijkl_dir="$1" 
+timestep="$2"
+mode="$3"
+split_dir="$4"
+avg="$5"
+verbose="$6"
+save_bascan="$7"
+idisp="$8"
+varpar="$9"
+density="${10}"
+incidence="${11}"
+bottom="${12}"
+lith_bot="${13}"
+execute="${14}"
+
+# current working directory
+cwd=`pwd`
+
+multi_cpu=$OMPI_COMM_WORLD_SIZE # get number of CPUs
+proc_id=$PMIX_RANK 		# get CPU rank
+proc_dir=cpu$proc_id	  	# CPU output directory
+rm -r $proc_dir 2> /dev/null 	# Delete existing CPU directory
+mkdir -p $proc_dir 		# Make CPU directory
+
+#Copy executables to process directory
+cp anicake 			 $proc_dir
+cp fazi2splitstat 		 $proc_dir
+cp sav2cijkl 			 $proc_dir
+cp produce_splitting_layersU.awk $proc_dir
+
+cd $proc_dir
+cwd2=`pwd`
+
+# CPU output file
+outfile_id=output$proc_id.txt 
+touch $outfile_id
+
+echo "Working on directory $cwd2" &>> $outfile_id
+
+echo "Rank is $PMIX_RANK. Total CPUs are $multi_cpu" > $outfile_id
+echo "				" &>> $outfile_id
+echo "cijkl_dir   = $cijkl_dir  " &>> $outfile_id
+echo "timestep    = $timestep   " &>> $outfile_id
+echo "mode        = $mode       " &>> $outfile_id
+echo "split_dir   = $split_dir  " &>> $outfile_id
+echo "avg         = $avg        " &>> $outfile_id
+echo "verbose     = $verbose    " &>> $outfile_id
+echo "save_bascan = $save_bascan" &>> $outfile_id
+echo "idisp       = $idisp      " &>> $outfile_id
+echo "varpar      = $varpar     " &>> $outfile_id
+echo "density     = $density    " &>> $outfile_id
+echo "incidence   = $incidence  " &>> $outfile_id
+echo "bottom      = $bottom     " &>> $outfile_id
+echo "lith_bot    = $lith_bot   " &>> $outfile_id
+echo "execute     = $execute    " &>> $outfile_id
+echo "				" &>> $outfile_id
+
+#
+# Input directories with tensor files for each seismic station
+#
+ss_dir=$cijkl_dir/seismic_stations/
+
+#
+# Output directory for splitting data
+#
+odir=$cijkl_dir/$split_dir
+mkdir -p $odir
+if [ $mode -ne 0 ];then		# if not all layers, indicate which depth mode
+    odir=$odir/$mode
+    if [ $mode -eq 1 ]; then
+       odir=$odir/$lith_bot
+    fi
+    mkdir -p $odir
+fi
+
+if [ $proc_id -eq 0 ]; then
+   rm $odir/* 2> /dev/null
+fi
+
+#
+# don't change the naming convention here!!!
+#
+llfile=split.$mode.$timestep
+if [ $mode -eq 1 ]; then
+   llfile=split.$mode.$lith_bot.$timestep
+fi
+if [ $multi_cpu -eq 0 ];then	# clear
+
+    if [ $avg -eq 0 ];then		# output files for average splitting parametes
+	rm $odir/$llfile.sstat 2> /dev/null
+    else
+	rm $odir/$llfile.avg.sstat 2> /dev/null
+    fi
+    rm $odir/split.dat 2> /dev/null # remove old split files
+
+fi
+
+echo "Model directory = $cijkl_dir   " &>> $outfile_id
+echo "Input directory = $ss_dir      " &>> $outfile_id
+echo "Output directory= $odir        " &>> $outfile_id
+echo "Output file     = $odir/$llfile" &>> $outfile_id
+echo "			             " &>> $outfile_id
+
+#
+# temporary working directory
+#
+tmpd=tmp1
+mkdir -p $tmpd
+tmpn=$tmpd/t
+trap "rm -rf $tmpd ; exit" 0 1 2 15
+
+#
+#Get number of seismic stations at the surface
+#
+ns=0
+for f in `ls $ss_dir/seismic_station_*.sav `;do
+    ((ns=ns+1))
+done
+echo "Number of seismic stations being processed $ns" &>> $outfile_id
+echo "			        		    " &>> $outfile_id
+
+ncoord=`cat $ss_dir/Surface_coordinates.dat | gawk '{if(NR<2) print(NF)}'`
+if [ $ncoord -ne $ns ]; then
+    echo "Number of x-z coordinates $ncoord different from number of seismic stations $ns" &>> $outfile_id
+    exit
+fi
+
+#
+# Manage seismic stations among different cpus
+#
+if [ $multi_cpu -eq 0 ];then	# all tracers
+    nstart=1;nstop=$ns 
+else
+    #
+    # split things up for several CPUs
+    #
+    if [ $ns -lt $multi_cpu ];then
+	echo $0: error, only $ns points for $multi_cpu CPUs
+	exit
+    fi
+    
+    nstp=$(($ns/$multi_cpu)) #bash perform floor rounding by default
+    nstp1=$(($nstp+1)) 
+    ns1=$(($nstp1*$multi_cpu))
+    dns=$(($ns1-$ns))
+  
+    #Total number of stations: ns = dns*nstp + (multi_cpu-dns)*nstp1
+    if [ $proc_id -le $(($dns-1)) ];then
+       nstart=$(($proc_id*$nstp+1))
+       nstop=$(($nstart+$nstp-1))
+    else
+       nstart=$(($dns*$nstp + ($proc_id-$dns)*$nstp1+1))
+       nstop=$(($nstart+$nstp1-1))
+    fi
+    if [ $nstop -gt $ns ] || [ $proc_id -eq $(($multi_cpu-1)) ] ;then
+	nstop=$ns
+ 	echo " nstop > number of stations!!!" &>> $outfile_id
+    fi
+    echo "CPU $proc_id working on $(($nstop-$nstart+1)) stations, from $nstart to $nstop" &>> $outfile_id
+
+fi 
+
+t_dir=tensors
+mkdir -p $t_dir &>> $outfile_id
+
+###########################################################################
+###########################################################################
+###                                                                     ###
+###                               MAIN LOOP                             ### 
+###                                                                     ###
+###########################################################################
+###########################################################################
+
+i=$nstart
+cycle=0
+while [ $i -le $nstop ];do		# loop through points
+
+cycle=$(($cycle +1))
+echo " " &>> $outfile_id
+
+#
+# location
+#
+x=`cat $ss_dir/Surface_coordinates.dat | gawk 'NR==1{print($'$i')}'` # Surface_coordinates.dat`
+z=`gawk '{if(NR==2) print($'$i')}' $ss_dir/Surface_coordinates.dat`
+
+#tensor file
+depths=`cat $ss_dir/seismic_station_$i.sav | gawk '{if(NR<2)printf($0)}'`
+if [ $mode -eq 1 ];then
+    echo " restricting depths to below $lith_bot km " &>> $outfile_id
+    nl_above=`echo $depths $lith_bot | gawk '{for(i=1;i<=(NF-1);i++) if($i<=$NF) print(i)}'`
+    nl_above=`echo $nl_above | gawk '{print($NF)}'`
+    depths=`echo $depths $lith_bot | gawk '{for(i=1;i<=(NF-1);i++) if($i>$NF)printf("%s ",$i)}'`
+    echo "Number of layers above the lithosphere $nl_above" &>> $outfile_id 
+elif [ $mode -eq 2 ];then
+    echo "restricting depths to be above or equal to 250 km" &>> $outfile_id
+    depths=`echo $depths | gawk '{for(i=1;i<=NF;i++)if($i<=250)printf("%s ",$i)}'`
+fi
+
+mid_bottom_layer=`echo $depths | gawk '{dx=($(NF)-$(NF-1))/2;print($NF+dx)}'`
+      
+# total thickness
+layerd=`echo $depths | gawk '{print($NF)}'`
+# number of layers
+nl=`echo $depths | gawk '{print(NF)}'`
+#d0=`echo $depths | gawk '{print($1)}'`
+d0=`echo $depths | gawk '{print($1)}'`
+#echo "$0: $d0"
+
+#Constant density defined in pbs_sks
+if [ $varpar -eq 0 ]; then
+   densities=`echo $nl | gawk '{for(i=1;i<=$1;i++)printf("%g ",d)}' d=$density`
+#Load density from D-REX_M
+else
+   densities=`cat $ss_dir/seismic_station_$i.sav | gawk '{if(NR==2)printf($0)}'`
+fi
+density_bot=3.724; vp_bot=9.092; vs_bot=4.874 # PREM values at 5971 km
+adens_avg=$density
+
+# sin(5deg)/v_s
+rayp=`echo $incidence $vs_bot | gawk '{print(sin($1/57.2957795130823208)/$2)}'`
+
+echo " Seismic station $i at x = $x, z =  $z " &>> $outfile_id
+echo " Total number of layers = $nl " &>> $outfile_id    
+echo " depths(km)        : `echo $depths    | gawk '{for(j=1;j<=NF;j++) printf("%6d",$j)}'`, depth mid bottom layer(km) $mid_bottom_layer" &>> $outfile_id
+#echo " depths(km)        : `echo $depths | gawk '{printf("%6d",$0)}'`, depth mid bottom layer(km) $mid_bottom_layer" &>> $outfile_id
+echo " densities (g/cm^3): `echo $densities | gawk '{for(j=1;j<=NF;j++) printf("%6.3f",$j)}'`" &>> $outfile_id
+#echo " densities (g/cm^3): `echo $densities | gawk '{print($0)}'`" &>> $outfile_id
+echo " vp_bot(km/s) $vp_bot, vs_bot(km/s): $vs_bot, density_bot(g/cm^3) $density_bot, layerd(total thickness,km): $layerd, rayp: $rayp" &>> $outfile_id
+
+cat $ss_dir/seismic_station_$i.sav > $tmpn.$i.sav
+
+#
+# Generate tensors for each depth
+#
+if [ $cycle -gt 1 ]; then
+   rm $t_dir/* 2> /dev/null
+fi
+
+a=0;
+if [ $mode -eq 1 ]; then
+   a=$nl_above
+fi
+for d in $depths; do		
+    ((a=$a+1))
+
+    tfile2=$t_dir/depth_`echo $d`.sav
+    tfile=$t_dir/depth_`echo $d`.cijkl 
+	
+    rm $tfile $tfile2 2> /dev/null    
+    if [ ! -s $tmpn.$i.sav ];then
+        echo $0: error, tmp1 tensor $i not found
+        exit
+    fi
+    cat $tmpn.$i.sav | gawk '{if(NR>2) print($'$a')}' > $tfile2
+    
+    ./sav2cijkl $tfile2  $density 0 1 > $tfile 2> /dev/null
+    
+    if [ ! -s $tfile ];then
+        echo $0: $tfile error 2
+        exit
+    fi
+done
+
+echo " --> tensor transfer done" &>> $outfile_id
+
+#Shifting all depths below lithosphere/slab by lith_bot/slab_bot, so the thickness in the anicake.F input file are real
+Shift=0
+if [ $mode -eq 1 ];then
+    echo " Restricting depths to below the slab " &>> $outfile_id             
+    depths=`echo $depths $lith_bot | gawk '{for(i=1;i<=(NF-1);i++) if($i>$NF)printf("%s ",($i-$NF))}'`
+    Shift=$lith_bot
+    echo "Shift = $Shift; Depths: $depths" &>> $outfile_id
+fi
+
+    if [ $execute -eq 1 ];then
+	if [ $avg -eq 0 ];then
+#
+# compute splitting
+#
+            tfile3=$odir/split_`echo $i`.dat
+	    if [ -f "$tfile3" ]; then
+	       rm $tfile3 2> /dev/null    
+	    fi
+    
+	    az=0				# backazimuth loop
+            while [ $az -gt -360 ];do
+                echo $depths $densities $Shift | \
+		    gawk -v tensor_dir=$t_dir  -v idisp=$idisp -v outfile=tmp2.dat \
+		    -v density_bot=$density_bot -v vp_bot=$vp_bot -v vs_bot=$vs_bot \
+		    -v rayp=$rayp -v az=$az -v bottom=$bottom -v outfile_id=$outfile_id -f produce_splitting_layersU.awk | \
+		    ./anicake > /dev/null 
+		
+		if [ $idisp -lt 10 ];then
+		    exit
+		fi
+		cat tmp2.dat	| \
+		    gawk '{a=$2;fa=$3-a;if(fa>90)fa-=180;if(fa<-90)fa+=180;\
+   		           a+=360;if(a>360)a-=360;\
+        		   dt=$4;misfit=$5;\
+        		   if(dt != 0){
+        		   fazi = 180 - fa;\
+        		   if(fazi>=180)fazi-=180;\
+        		   if(fazi<0)fazi+=180;\
+        		   }else{fazi=0;};\
+  			   #
+        		   #Save data to split.dat
+        		   #
+        		   print(a,fazi,dt,misfit)}' >> $tfile3
+
+		tail -1 $tfile3 &>> $outfile_id  
+		
+		#Set here azimuth step
+		((az=az-5))
+
+	    done
+            
+            # use only low error estimates
+	    gawk '{if($4<0.5){print($0)}}' $tfile3 > tmp2; mv tmp2 $tfile3
+	    rm $t_dir/*   tmp2.dat 2> /dev/null
+	    
+	else			# average
+	    rm avg.sav 2> /dev/null
+	    for d in $depths;do
+		cat $t_dir/depth_`echo $d`.sav >> avg.sav
+	    done
+	    
+	    echo "average tensor for nl $nl layerd $layerd" &>> $outfile_id
+	    
+	    gawk -f meanallcol.awk avg.sav > tmp2; mv tmp2 avg.sav
+	    sav2splitting avg.sav 1 0 $layerd $adens_avg 0 0 0 2> /dev/null | gawk '{print($4,$5,$6,$7)}' > tmp2.dat
+	    read mean_fazi std_fazi mean_dt std_dt < tmp2.dat
+	    rm tmp2.dat avg.sav 
+	fi
+	
+     #
+     # output
+     #
+	if [ $avg -eq 0 ];then
+	    #Number of good measuraments
+	    ngood=`gawk 'END{print(NR)}' $tfile3`
+            # statistics only if good measuraments
+            #if [ $ngood -gt 0  ]; then
+                echo $x $z `gawk '{print($1,$2,$3)}' $tfile3 | ./fazi2splitstat $ngood 2> /dev/null ` >> $odir/$llfile.sstat
+	    #fi
+            tail -1 $odir/$llfile.sstat &>> $outfile_id
+
+	    if [ $save_bascan -eq 1 ];then
+		gzip -f $tfile3
+		echo "written to $tfile3" &>> $outfile_id
+	    else
+		rm $tfile3
+	    fi
+	else
+	    echo $lon $lat $mean_fazi $std_fazi $mean_dt $std_dt >> $odir/$llfile.avg.sstat
+	    tail -1 $odir/$llfile.avg.sstat &>> $outfile_id
+	fi
+    fi
+	
+    ((i=i+1))
+
+done
+
+cd $cwd

@@ -1,5 +1,5 @@
 # A) output_name: Output file and directory name
-Atype_ 
+Atype_           
 
 # B) Maximum strain
 1.00d0 # strain_max
@@ -13,25 +13,25 @@ Atype_
 0.0d0  # D13
 0.0d0  # D31
 0.0d0  # D23
-1.0d0  # D32
+0.0d0  # D32
 
 # D) LPO parameters
 
      8 # size3: cubic root of total number of grains = size3^3
 
-     1 # rocktype: 1 = Ol + Ens; 2 = Wd + Grt; 4 = Brd + MgO
+     1 # rocktype: 1 = Ol + Ens; 2 = Wd + Grt; 4 = Brd + MgO; 5 = PPv + MgO
 
 # Upper mantle: Ol + Ens
  
    7d1 # Xol(1) : fraction of olivine (%)
  3.5d0 # stressexp(1)
- 125d0 # Mob(1)
+  10d0 # Mob(1)
  0.3d0 # chi(1)
    5d0 # lambda(1)
 1.00d0 # fractdislrock(1) : fraction of def. accommodated by anis. phases
-   1d0 # tau(1,1) [100](010) Olivine
-   2d0 # tau(1,2) [100](001) Olivine
-   3d0 # tau(1,3) [001](010) Olivine
+ 1.0d0 # tau(1,1) [100](010) Olivine
+ 2.0d0 # tau(1,2) [100](001) Olivine
+ 3.0d0 # tau(1,3) [001](010) Olivine
   1d60 # tau(1,4) [001](100) Olivine
    1d0 # tau(1,5) [001](100) Enstatite
      1 # single_crystal_elastic_db(1,1) : Olivine single crystal elastic tensor as in elastic_database.f90
@@ -83,14 +83,35 @@ Atype_
    5d0 # tau(4,10)[-110](001) Bridgmanite 
    5d0 # tau(4,11)[110](-110) Bridgmanite 
    5d0 # tau(4,12)[-110](110) Bridgmanite 
-    15 # single_crystal_elastic_db(4,1) : Bridgmanite single crystal elastic tensor as in elastic_database.f90
-     9 # single_crystal_elastic_db(4,2) : MgO single crystal elastic tensor as in elastic_database.f90
+     8 # single_crystal_elastic_db(4,1) : Bridgmanite single crystal elastic tensor as in elastic_database.f90
+    10 # single_crystal_elastic_db(4,2) : MgO single crystal elastic tensor as in elastic_database.f90
 
+# Lower mantle: pPv + MgO 
+ 
+   8d1 # Xol(5) : fraction of PPv (%)
+ 3.0d0 # stressexp(5) 
+  10d0 # Mob(5)
+ 0.3d0 # chi(5)
+   5d0 # lambda(5)
+1.00d0 # fractdislrock(5) : fraction of def. accommodated by anis. phases
+   5d0 # tau(5,1) [100](010)  PPv         
+   1d0 # tau(5,2) [100](001)  PPv         
+   5d0 # tau(5,3) [010](100)  PPv         
+   5d0 # tau(5,4) [010](001)  PPv         
+   5d0 # tau(5,5) [001](100)  PPv         
+   5d0 # tau(5,6) [001](010)  PPv         
+   5d0 # tau(5,7) [001](110)  PPv         
+   5d0 # tau(5,8) [001](-110) PPv         
+   5d0 # tau(5,9)[110](1-10) PPv         
+   5d0 # tau(5,10)[-110](110) PPv         
+    11 # single_crystal_elastic_db(5,1) : PPv single crystal elastic tensor as in elastic_database.f90
+    10 # single_crystal_elastic_db(5,2) : MgO single crystal elastic tensor as in elastic_database.f90
+ 
 # E) SET OPERATING MODES FOR THE OUTPUT
  
-     1 # ptmod : 0 = room P-T; 1 = scale single crystal elastic tensor by P-T conditions defined below
+     0 # ptmod : 0 = room P-T; 1 = scale single crystal elastic tensor by P-T conditions defined below
      3 # eosmod (1 = Dunite; 2 = Hartzburgite; 3 = Pyrolite; 4 = Basalt ; 5 = Pyroxenite)
-   8.0 # pressure (GPa)
+  3.00 # pressure (GPa)
 1623.0 # tkelv : temperature (K) 
   50d0 # fractvoigt : fraction of Voigt average, from 0 % to 100 %. The rest is Reuss average 
 

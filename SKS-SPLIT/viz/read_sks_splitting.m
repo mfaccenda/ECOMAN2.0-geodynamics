@@ -58,7 +58,7 @@ end
 xyz0(1,np+1)=X1ref;
 xyz0(2,np+1)=X2ref;
 xyz0(3,np+1)=X3ref;
-sks(1,np+1)=1;
+sks(:,np+1)=[1 0 0];
 mean_dt(np+1)=1;
 
 if(cartspher == 1)

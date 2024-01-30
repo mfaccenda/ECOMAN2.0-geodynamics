@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# set number of threads     
+export OMP_NUM_THREADS=28 
+
+#Generate stack of horizontal layers with different elastic tensors (scaled by density) beneath each seismic station 
+./stack_calc [args]
+
+wait
+
+#Compute splitting parameters averaged over back-azimuth
+mpiexec  -np 28  ./split_calc [args]

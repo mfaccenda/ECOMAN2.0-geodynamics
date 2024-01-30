@@ -28,7 +28,7 @@
 
 # C) SPO: EXTRINSIC ELASTIC ANISOTROPY
 
-0  # spomod (when active, the LPO elastic tensors are reset to 0). The Effective Medium is chosen as: 1 = STILWE (Backus, 1962, JGR); 2/3 = DEM (Mainprice, 1997, EPSL). Define SPO model parameters in inputspo.dat
+0  # spomod (when active, the LPO elastic tensors are reset to 0). The Effective Medium is chosen as: 1 = STILWE (Backus, 1962, JGR); 2/3 = DEM (Mainprice, 1997, EPSL). Define SPO model parameters in spo_input.dat
 
 # D) EULERIAN GRIDDING: INTERPOLATE THE AGGREGATES PROPERTIES TO A GRID
  
@@ -70,4 +70,4 @@
       0 # reflectmod (when active, reflect the aggregates with respect to the indicated axis; e.g., when  = 1, then reflect with respect to X axis; if eulerianmod is active, then need to double the domain)
       0  # replicateZmod (when active, replicate the 2D tomographic model along the Z (Colat) direction)
       0  # specfem3Dmod (when active, print elastic tensors to txt file to be used as an input by Specfem3D)
-      0  # syntomomod (when active, print elastic tensors to txt file to be used as an input by SYNTOMO)  
+      0  # psimod (when active, print elastic tensors to txt file to be used as an input by PSI)  

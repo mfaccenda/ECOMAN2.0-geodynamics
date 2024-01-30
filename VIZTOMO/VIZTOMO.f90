@@ -2,7 +2,7 @@
  !! ---------------------------------------------------------------------------
  !! ---------------------------------------------------------------------------
  !!
- !!    Copyright (c) 2018-2020, Universita' di Padova, Manuele Faccenda
+ !!    Copyright (c) 2018-2023, Universita' di Padova, Manuele Faccenda
  !!    All rights reserved.
  !!
  !!    This software package was developed at:
@@ -285,10 +285,10 @@ END SUBROUTINE read_infos
    i2last  = X2n(nx2)
    x10size = i1last-i1first
    x20size = i2last-i2first
-   if(reflectmod == -1 .AND. n1first >= i1first) print *,'Reflection about Xmin is active. Change Xmin of the tomographi grid'  
-   if(reflectmod ==  1 .AND. n1last  <= i1last ) print *,'Reflection about Xmax is active. Change Xmax of the tomographi grid'  
-   if(reflectmod == -2 .AND. n2first >= i2first) print *,'Reflection about Ymin is active. Change Ymin of the tomographi grid'  
-   if(reflectmod ==  2 .AND. n2last  <= i2last ) print *,'Reflection about Ymax is active. Change Ymax of the tomographi grid'  
+   if(reflectmod == -1 .AND. n1first >= i1first) print *,'Reflection about Xmin is active. Change Xmin of the tomographic grid'  
+   if(reflectmod ==  1 .AND. n1last  <= i1last ) print *,'Reflection about Xmax is active. Change Xmax of the tomographic grid'  
+   if(reflectmod == -2 .AND. n2first >= i2first) print *,'Reflection about Ymin is active. Change Ymin of the tomographic grid'  
+   if(reflectmod ==  2 .AND. n2last  <= i2last ) print *,'Reflection about Ymax is active. Change Ymax of the tomographic grid'  
 
    IF(dimensions == 3) THEN 
       i3first = X3n(1)
@@ -337,8 +337,12 @@ END SUBROUTINE read_infos
    IF(dimensions == 3) THEN
       CALL loadsave_double(0,1,group_id,marknum,H5T_NATIVE_DOUBLE,mx3,'mx3',0)
    ELSE 
-      IF(cartspher == 1) mx3 = 0d0
-      IF(cartspher == 2) mx3 = pi/2.0
+      IF(cartspher == 1) THEN
+         mx3 = 0d0; n3first = 0d0 ; n3last = 0d0
+      END IF
+      IF(cartspher == 2) THEN
+         mx3 = pi/2.0; n3first = pi/2.0 ; n3last = pi/2.0
+      END IF
    END IF
 
    mYY = 1
@@ -446,112 +450,6 @@ END SUBROUTINE read_infos
    !Close FORTRAN interface.
   
    END SUBROUTINE readcijkl
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!! Load/Save dataset, format double precision                             !!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-   SUBROUTINE loadsave_double(data_attr,rank,loc_id,dims,memtype,buf1,path,mode)
-
-   USE comvar
-   USE hdf5
-
-   IMPLICIT NONE
-
-   CHARACTER(LEN=*), INTENT(IN) :: path
-   INTEGER     ::   rank,dims(rank),data_attr,mode
-   INTEGER(HID_T)  :: loc_id, dataspace_id, dataset_id, attr_id, memtype ! Handles
-   INTEGER(HSIZE_T), DIMENSION(1:rank) :: dims1
-   INTEGER     ::   error  ! Error flag
-   DOUBLE PRECISION, DIMENSION(*) :: buf1
- 
-   dims1=dims
-   !Dataset
-   IF(data_attr .EQ. 0) THEN
-      IF(mode .eq. 0) THEN
-         CALL H5Dopen_f(loc_id, path, dataset_id, error)
-         CALL H5Dread_f(dataset_id, memtype, buf1, dims1, error)
-         CALL H5Dclose_f(dataset_id,error) 
-      ELSE
-         CALL H5Screate_simple_f(rank,dims1,dataspace_id,error)
-         CALL H5Dcreate_f(loc_id, path, memtype, dataspace_id, dataset_id, error)
-         CALL H5Dwrite_f (dataset_id, memtype, buf1, dims1, error)
-         CALL H5Dclose_f (dataset_id, error)
-         CALL H5Sclose_f (dataspace_id, error)
-      END IF
-   END IF
-   !Attribute
-   IF(data_attr .EQ. 1) THEN
-      IF(mode .eq. 0) THEN
-         CALL H5Aopen_f(loc_id, path, attr_id, error)
-         CALL H5Aread_f(attr_id, memtype, buf1, dims1, error)
-         CALL H5Aclose_f(attr_id, error)
-      ELSE
-         CALL H5Screate_simple_f(rank, dims1, dataspace_id, error)
-         CALL H5Acreate_f(loc_id, path, memtype, dataspace_id, attr_id, error)
-         CALL H5Awrite_f(attr_id, memtype, buf1, dims1, error)
-         CALL H5Aclose_f(attr_id, error)
-         CALL H5Sclose_f(dataspace_id, error)
-      END IF
-   END IF
-
-   RETURN  
-
-   END SUBROUTINE loadsave_double  
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!! Load/Save dataset, format integer                                      !!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-   SUBROUTINE loadsave_integer(data_attr,rank,loc_id,dims,memtype,buf1,path,mode)
-
-   USE comvar
-   USE hdf5
-
-   IMPLICIT NONE
-
-   CHARACTER(LEN=*), INTENT(IN) :: path
-   INTEGER     ::   rank,dims(rank),data_attr,mode
-   INTEGER(HID_T)  :: loc_id, dataspace_id, dataset_id, attr_id, memtype ! Handles
-   INTEGER(HSIZE_T), DIMENSION(1:rank) :: dims1
-   INTEGER     ::   error  ! Error flag
-   INTEGER, DIMENSION(*) :: buf1
- 
-   dims1=dims
-   !Dataset
-   IF(data_attr .EQ. 0) THEN
-      IF(mode .eq. 0) THEN
-         CALL H5Dopen_f(loc_id, path, dataset_id, error)
-         CALL H5Dread_f(dataset_id, memtype, buf1, dims1, error)
-         CALL H5Dclose_f(dataset_id,error) 
-      ELSE
-         CALL H5Screate_simple_f(rank,dims1,dataspace_id,error)
-         CALL H5Dcreate_f(loc_id, path, memtype, dataspace_id, dataset_id, error)
-         CALL H5Dwrite_f (dataset_id, memtype, buf1, dims1, error)
-         CALL H5Dclose_f (dataset_id, error)
-         CALL H5Sclose_f (dataspace_id, error)
-      END IF
-   END IF
-   !Attribute
-   IF(data_attr .EQ. 1) THEN
-      IF(mode .eq. 0) THEN
-         CALL H5Aopen_f(loc_id, path, attr_id, error)
-         CALL H5Aread_f(attr_id, memtype, buf1, dims1, error)
-         CALL H5Aclose_f(attr_id, error)
-      ELSE
-         CALL H5Screate_simple_f(rank, dims1, dataspace_id, error)
-         CALL H5Acreate_f(loc_id, path, memtype, dataspace_id, attr_id, error)
-         CALL H5Awrite_f(attr_id, memtype, buf1, dims1, error)
-         CALL H5Aclose_f(attr_id, error)
-         CALL H5Sclose_f(dataspace_id, error)
-      END IF
-   END IF
-
-   RETURN  
-
-   END SUBROUTINE loadsave_integer 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!! subroutine fsecalc, calculate fse semiaxes and their orientation       !!!

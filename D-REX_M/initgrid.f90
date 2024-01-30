@@ -2,7 +2,7 @@
  !! ---------------------------------------------------------------------------
  !! ---------------------------------------------------------------------------
  !!
- !!    Copyright (c) 2018-2020, Universita' di Padova, Manuele Faccenda
+ !!    Copyright (c) 2018-2023, Universita' di Padova, Manuele Faccenda
  !!    All rights reserved.
  !!
  !!    This software package was developed at:
@@ -52,47 +52,64 @@
    USE hdf5
    USE omp_lib
 
+   !M3E!!!!!!!!!!!!!!
+   use class_DistGrid
+   !M3E!!!!!!!!!!!!!!
+
    IMPLICIT NONE
 
-   INTEGER :: i1,i2,i3,i,j,gi,j1,j2,j3,t,m,mrnum,mcolatnum,mlongnum,nx(3),ptmod0,ptnum,yy,marknum00 ! loop counters
+   INTEGER :: i1,i2,i3,i,j,gi,j1,j2,j3,m,ptmod0,ptnum,yy,marknum00 ! loop counters
+   INTEGER :: iph,ith,ips,nbox
 
-   DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: ran0
    ! matrix of random numbers used to generate initial random LPO
+   DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: ran0
+   DOUBLE PRECISION :: dph,dcosth,dps,ph,costh,ps,th
+   DOUBLE PRECISION :: p21,p31,p41
 
-   DOUBLE PRECISION :: phi1,theta,phi2,phi,memnodes,memmark,dummy,lr,cr
    ! eulerian angles
+   DOUBLE PRECISION :: phi1,theta,phi2,memnodes,memmark,dummy,lr,cr
 
-   DOUBLE PRECISION :: mradiusmin,mcolatmin,mlongmin
-   DOUBLE PRECISION :: mradiusmax,mcolatmax,mlongmax
-   DOUBLE PRECISION :: colatlen,longlen,mR,mcolat,mlong
-   DOUBLE PRECISION :: mcolatstp,mlongstp,mradiusstp
-   DOUBLE PRECISION :: mcolatradiansstp,mlongradiansstp                      
-
+   ! matrixes of initial random eulerian angles
    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: xe1,xe2,xe3
    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: Rhodum,Vpdum,Vsdum
-   ! matrixes of initial random eulerian angles
-
-   CHARACTER (len=500) :: input_dir,output_dir
 
    ! input and output directories
-   CHARACTER(50) :: arg,inputfilename
+   CHARACTER (len=500) :: input_dir,output_dir
+
    CHARACTER(500) :: str
 
-   INTEGER(HID_T)  :: file_id, group_id, dataspace_id, dataset_id, attr_id, dcpl,memtype !Handles
+   INTEGER(HID_T)  :: file_id, group_id !Handles
    INTEGER     ::   error  ! Error flag
+
+   ! to fix the random distribution
+   INTEGER, ALLOCATABLE :: seed(:)
+
+   !M3E!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   real(kind=double) :: DistTime
+   integer           :: errMPI,rankMPI,sizeMPI
+   !M3E!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+   !M3E!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   ! Get MPI info
+   call MPI_COMM_SIZE(MPI_COMM_WORLD,sizeMPI,errMPI)
+   call MPI_COMM_RANK(MPI_COMM_WORLD,rankMPI,errMPI)
+   rankMPI = rankMPI + 1
+   !M3E!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
    !$omp parallel    
    nt = OMP_GET_NUM_THREADS()
    !$omp end parallel
 
-   print *,' '
-   write(*,'(a,i0)'),' Number of threads = ',nt
-   print *,' '
+   if ( rankMPI .eq. 1 ) then
+      print *,' '
+      write(*,'(a,i0)') ' Number of threads = ',nt
+      print *,' '
+   endif
 
    ALLOCATE(l(nt,3,3),e(nt,3,3),epsnot(nt))
 
-   pi = 3.141592653589793238462643383279
-   deg2rad = pi/180.0
+   pi = 3.141592653589793238462643383279d0
+   deg2rad = pi/180.0d0
 
    tau = 1d60
 
@@ -102,22 +119,46 @@
    !Number of files to be processed
    tnum=(Tend-Tinit)/Tstep+1
 
-   write(*,"(a)"),'********************************************************'
-   write(*,"(a)"),'********************************************************'
-   write(*,*)
-   write(*,'(a)'),' INITIALIZE EULERIAN GRID, AGGREGATES, ETC.'     
-   write(*,*)
-   
    !Scale coordinates 
    IF(cartspher>1) THEN
-      !Convert longitude to radians
-      x1min = x1min*deg2rad ; x1max = x1max*deg2rad 
-      mx1min = mx1min*deg2rad  ; mx1max = mx1max*deg2rad 
-      mx1minfab = mx1minfab*deg2rad  ; mx1maxfab = mx1maxfab*deg2rad 
-      x3min = x3min*deg2rad  ; x3max = x3max*deg2rad 
-      mx3min = mx3min*deg2rad  ; mx3max = mx3max*deg2rad 
-      mx3minfab = mx3minfab*deg2rad  ; mx3maxfab = mx3maxfab*deg2rad 
+      ! Convert longitude/colatitude to radians
+      x1min     = x1min*deg2rad;     x1max     = x1max*deg2rad
+      mx1min    = mx1min*deg2rad;    mx1max    = mx1max*deg2rad
+      mx1minfab = mx1minfab*deg2rad; mx1maxfab = mx1maxfab*deg2rad
+      x3min     = x3min*deg2rad;     x3max     = x3max*deg2rad
+      mx3min    = mx3min*deg2rad;    mx3max    = mx3max*deg2rad
+      mx3minfab = mx3minfab*deg2rad; mx3maxfab = mx3maxfab*deg2rad
    END IF
+
+   !M3E!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   call MPI_Barrier(MPI_COMM_WORLD,errMPI)
+   DistTime = MPI_Wtime()
+
+   call DistGrid(nproc1,nproc2,nproc3,                                                    &
+   &             dimensions,cartspher,                                                    &
+   &             x1min,x1max,nx1,x1periodic,                                              &
+   &             x2min,x2max,nx2,x2periodic,                                              &
+   &             x3min,x3max,nx3,x3periodic,                                              &
+   &             mx1min,mx1max,mx1stp,                                                    &
+   &             mx2min,mx2max,mx2stp,                                                    &
+   &             mx3min,mx3max,mx3stp)
+
+   call MPI_Barrier(MPI_COMM_WORLD,errMPI)
+   DistTime = MPI_Wtime() - DistTime
+
+   if ( rankMPI .eq. 1 ) then
+      write(*,'(a,f10.5,a)') ' M3E | TIME DISTGRID : ',DistTime,' s'
+      write(*,*)
+   endif 
+   !M3E!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+   if ( rankMPI .eq. 1 ) then
+      write(*,"(a)") '********************************************************'
+      write(*,"(a)") '********************************************************'
+      write(*,*)
+      write(*,'(a)') ' INITIALIZE EULERIAN GRID, AGGREGATES, ETC.'     
+      write(*,*)
+   endif 
 
    !Check if domain is defined correctly
    IF(x1max < x1min) THEN ; print *,' Wrong Eulerian domain because x1max < x1min '; stop; END IF
@@ -136,11 +177,11 @@
    IF(cartspher==2) THEN
       IF(x1max <  0d0) THEN; print *,'Wrong Eulerian domain because Longitude  <    0'; stop; END IF
       IF(x1max > 2*pi) THEN; print *,'Wrong Eulerian domain because Longitude  > 2*pi'; stop; END IF
-      IF(mx1max <  0d0) THEN; print *,'Wrong Lagrangian domain because Longitude  <    0'; stop; END IF
+!     IF(mx1max <  0d0) THEN; print *,'Wrong Lagrangian domain because Longitude  <    0'; stop; END IF ! wrong error
       IF(mx1max > 2*pi) THEN; print *,'Wrong Lagrangian domain because Longitude  > 2*pi'; stop; END IF
       IF(x3max <  0d0) THEN; print *,'Wrong Eulerian domain because Colatitude  <    0'; stop; END IF
       IF(x3max > pi) THEN; print *,'Wrong Eulerian domain because Colatitude  > pi'; stop; END IF
-      IF(mx3max <  0d0) THEN; print *,'Wrong Lagrangian domain because Colatitude  <    0'; stop; END IF
+!     IF(mx3max <  0d0) THEN; print *,'Wrong Lagrangian domain because Colatitude  <    0'; stop; END IF ! wrong error
       IF(mx3max > pi) THEN; print *,'Wrong Lagrangian domain because Colatitude  > pi'; stop; END IF
    END IF
 
@@ -159,11 +200,26 @@
    !Check if LPO parameters are defined correctly
    DO i=1,4
 
-      IF(Xol(i) < 0 .OR. Xol(i) > 100d0) THEN ; print *,'Wrong volume fraction of main phase for rocktype ',i,', it should be >= 0 and <= 1 '; stop; END IF 
-      IF(chi(i) < 0 .OR. chi(i) > 1d0) THEN ; print *,'Wrong GBS volume threshold for rocktype ',i,', it should be >= 0 and <= 1 '; stop; END IF   
-      IF(fractdislrock(i) < 0 .OR. fractdislrock(i) > 1d0) THEN ; print *,'Wrong fraction of deformation accommodated by dislocation creep for rocktype ',i,', it should be >= 0 and <= 1 '; stop; END IF   
-      IF(single_crystal_elastic_db(i,1) < 1 .OR.  single_crystal_elastic_db(i,1) > 20) THEN ; print *,'Wrong single crystal elastic tensor for main phase for rocktype ',i,', it should be > 0 and < 20'; stop; END IF   
-      IF(single_crystal_elastic_db(i,2) < 1 .OR.  single_crystal_elastic_db(i,2) > 20) THEN ; print *,'Wrong single crystal elastic tensor for minor phase for rocktype ',i,', it should be > 0 and < 20'; stop; END IF   
+      IF(Xol(i) < 0 .OR. Xol(i) > 100d0) THEN
+         print *,'Wrong volume fraction of main phase for rocktype ',i,', it should be >= 0 and <= 1 '
+         stop
+      END IF 
+      IF(chi(i) < 0 .OR. chi(i) > 1d0) THEN
+         print *,'Wrong GBS volume threshold for rocktype ',i,', it should be >= 0 and <= 1 '
+         stop
+      END IF
+      IF(fractdislrock(i) < 0 .OR. fractdislrock(i) > 1d0) THEN
+         print *,'Wrong fraction of deformation accommodated by dislocation creep for rocktype ',i,', it should be >= 0 and <= 1 '
+         stop
+      END IF   
+      IF(single_crystal_elastic_db(i,1) < 1 .OR.  single_crystal_elastic_db(i,1) > 20) THEN
+         print *,'Wrong single crystal elastic tensor for main phase for rocktype ',i,', it should be > 0 and < 20'
+         stop
+      END IF   
+      IF(single_crystal_elastic_db(i,2) < 1 .OR.  single_crystal_elastic_db(i,2) > 20) THEN
+         print *,'Wrong single crystal elastic tensor for minor phase for rocktype ',i,', it should be > 0 and < 20'
+         stop
+      END IF   
       IF(stressexp(i) < 0) THEN ; print *,'Negative power-law exponent for rocktype ',i,', it should be >= 1'; stop; END IF   
       IF(Mob(i) < 0)       THEN ; print *,'Negative Mob parameter for rocktype ',i,', it should be > 0'; stop; END IF   
       IF(lambda(i) < 0)    THEN ; print *,'Negative lambda parameter for rocktype ',i,', it should be > 0'; stop; END IF    
@@ -174,8 +230,10 @@
    END DO
   
    !Create ouput directory
-   str='mkdir '//trim(output_dir)
-   CALL SYSTEM(str)
+   if ( rankMPI .eq. 1) then 
+      str='mkdir '//trim(output_dir)
+      CALL SYSTEM(str)
+   endif
 
 !!! initial size
    size = size3**3
@@ -188,12 +246,22 @@
    nodenum = nx1*nx2*nx3
 
    ALLOCATE(X1(nx1),X2(nx2),X3(nx3),Ui(yy,3,nx1,nx2,nx3),Ux(yy,3,nx1,nx2,nx3),Dij(yy,3,3,nx1,nx2,nx3))
-   IF(ptmod > 0) ALLOCATE(Tk(yy,nx1,nx2,nx3),Pa(yy,nx1,nx2,nx3))
-   IF(fractdislmod > 0) ALLOCATE(Fd(yy,nx1,nx2,nx3))
+   memnodes=nx1+nx2+nx3+nodenum*yy*17 !Including V1,V2 in loadsave.f90
+   IF(dimensions == 3) memnodes = memnodes + nodenum*yy !Including V3 in loadsave.f90
+
+   IF(ptmod > 0) THEN 
+      ALLOCATE(Tk(yy,nx1,nx2,nx3),Pa(yy,nx1,nx2,nx3))
+      memnodes = memnodes + nodenum*yy*4 !Including Tk0 and P0 in loadsave.f90
+   END IF
+   IF(fractdislmod > 0) THEN 
+      ALLOCATE(Fd(yy,nx1,nx2,nx3))
+      memnodes = memnodes + nodenum*yy*2 !Including Fd0 in loadsave.f90
+   END IF
 
    x1stp = (x1max-x1min)/(nx1-1)
    x2stp = (x2max-x2min)/(nx2-1)
-   x3stp = (x3max-x3min)/(nx3-1)
+   x3stp = 0.d0
+   if ( nx3 .gt. 1 ) x3stp = (x3max-x3min)/(nx3-1)
 
    !Define Eulerian grid coordinates
    !X
@@ -216,221 +284,72 @@
    
 !!! Initialization of the Lagrangian grid with crystal aggregates
 
-   IF(cartspher==1) THEN
-  
-   mnx1=NINT((mx1max-mx1min)/mx1stp)
-   mnx2=NINT((mx2max-mx2min)/mx2stp)
-   mnx3=NINT((mx3max-mx3min)/mx3stp)
-   IF(dimensions == 2) mnx3 = 1
+   ! Calculate number of aggregates for array/matrix memory allocation
 
-   marknum=mnx1*mnx2*mnx3
+   call MPI_Barrier(MPI_COMM_WORLD,errMPI)
 
-   ELSE
+   !M3E!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   marknum = Ranknnmrk
 
-   !Define quantities appropriate for polar coordinates 
-   
-   !X is Colatitude
-   mlongmin = mx1min !Radians 
-   mlongmax = mx1max !Radians
-   !Y is Longitude
-   mradiusmin = mx2min !Distance
-   mradiusmax = mx2max !Distance
-   !Z is Colatitude
-   mcolatmin = mx3min !Radians 
-   mcolatmax = mx3max !Radians
-
-   mlongstp   = mx1stp !Distance
-   mradiusstp = mx2stp !Distance 
-   mcolatstp  = mx3stp !Distance
-   
-   !Calculate number of aggregates for array/matrix memory allocation
-   marknum=0
-   
-   !Number of vertical layers
-   mrnum=floor((mradiusmax-mradiusmin)/mradiusstp)
-
-   IF(dimensions == 2) THEN
-
-   DO i2 = 1, mrnum
-      !LAYER i2
-      !Find radius
-      mR = mradiusmin + mradiusstp*(i2-0.5)
-      !Find lenght of latitude arc (great circle arc)
-      longlen = (mlongmax-mlongmin)*mR
-      !Number of aggregates along latitude arc
-      mlongnum = floor(longlen/mlongstp)
-      !Increase number of markers
-      marknum = marknum + mlongnum
-   END DO
-
-   END IF
-
-   IF(dimensions == 3) THEN
-   
-   DO i2 = 1, mrnum
-      !LAYER i2
-      !Find radius
-      mR = mradiusmin + mradiusstp*(i2-0.5)
-      !Find lenght of latitude arc (great circle arc)
-      colatlen = (mcolatmax-mcolatmin)*mR
-      !Number of aggregates along latitude arc
-      mcolatnum = floor(colatlen/mcolatstp)
-      !Latitude step in radians
-      mcolatradiansstp = (mcolatmax-mcolatmin)/REAL(mcolatnum)
-      DO i3 = 1, mcolatnum
-         !Colatitude in radians
-         mcolat = mcolatmin + mcolatradiansstp*(i3-0.5)
-         !Find lenght of longitude arc 
-         longlen = (mlongmax-mlongmin)*mR*sin(mcolat)
-         !Number of markers along longitude    
-         mlongnum = floor(longlen/mlongstp)
-         !Increase number of markers
-         marknum = marknum + mlongnum
-      END DO
-   END DO
-
-   !Double number of markers when yinyang grids are active
-   IF(yinyang == 2) marknum = marknum*2
-
-   END IF
-
-   END IF
-
+   ! Double number of markers when yinyang grids are active
+   if ( cartspher == 2 .and. dimensions == 3 .and. yinyang == 2 ) then
+      marknum = marknum * 2
+   end if
+   !M3E!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  
    write(*,*)
-   write(*,'(a,i0,a,i0)'),' Number of aggregates in the domain = ',marknum
-   write(*,*)
-
-   memnodes=nx1+nx2+nx3+nx1*nx2*nx3*27*yy
-   write(*,'(a,1f6.2,a)'),' Memory needed for nodes is ',memnodes*8/1d9,' GB'
-   print*
-  
-   memmark = marknum*(5 + 9)
-
-   !Account for Sav, P, T
-   memmark = memmark + marknum*(36+2)
-
-   dummy=marknum*size
-   dummy=dummy*(9 + 9 + 1 + 1) 
-   memmark = memmark + dummy           
-
-   write(*,'(a,1f6.2,a)'),' Memory needed for aggregates is ',((memmark-1)*8+1)/1d9,' GB'
-   print*
-   write(*,'(a,1f6.2,a)'),' Total memory needed is about ',((memnodes+memmark)*8/1d9)*1.05d0, ' GB' !Add 5% to account for other variables declared
-   print*
+   write(*,'(a,i0,a,i0)') ' Number of aggregates in the domain = ',marknum,' | rank: ',rankMPI
 
    ALLOCATE(mx1(marknum),mx2(marknum),mx3(marknum),mYY(marknum),rocktype(marknum),rho(marknum))
+   ALLOCATE(max_strain(marknum),time_max_strain(marknum))
    ALLOCATE(Fij(3,3,marknum))
 
+   memmark = marknum*16 !rocktype and mYY are INT (4 bytes) and thus together amount to one 8 bytes array
+   !Account for Sav and Xsave
+   IF(fsemod == 0 .OR. sbfmod > 0) THEN
+      memmark = memmark + marknum*(36 + 21)
+      IF(ptmod > 0) memmark = memmark + marknum*2 ! mtk, mpgpa 
+   END IF
+
+!!! Initialize arrays
    mx1 = 0d0 ; mx2 = 0d0 ; mx3 = 0d0 ; mYY = 1 ; rocktype = 1 ; rho = 0d0
+   max_strain = 0d0; time_max_strain = -1.0d60
 
 !!! Initial deformation gradient tensor
    Fij = 0d0 ; Fij(1,1,:) = 1d0 ; Fij(2,2,:) = 1d0 ; Fij(3,3,:) = 1d0
 
    m = 0
   
+   !M3E!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    IF(cartspher == 1) THEN
 
-   DO i1 = 1, mnx1
-      DO i2 = 1, mnx2
-         DO i3 = 1, mnx3
-            !Marker Index
-            m = m + 1
-            mx1(m)=mx1min+mx1stp*(i1 - 0.5d0)
-            mx2(m)=mx2min+mx2stp*(i2 - 0.5d0)
-            mx3(m)=mx3min+mx3stp*(i3 - 0.5d0)
-         END DO
-      END DO
-   END DO
-
-   !Set Z coordinate equal to 0
-   IF(dimensions == 2) mx3 = 0d0
+      marknum00 = marknum
+      if(yy == 2) marknum00 = marknum / 2
+      call GetCoordCart(dimensions,marknum00,mx1,mx2,mx3)
 
    ELSE
 
-   IF(dimensions == 2) THEN
+      marknum00 = marknum
+      if(yy == 2) marknum00 = marknum / 2
+      call GetCoordSphe(dimensions,marknum00,mx1,mx2,mx3)
 
-   DO i2 = 1, mrnum
-      !LAYER i2
-      !Find radius
-      mR = mradiusmin + mradiusstp*(i2-0.5)
-      !Find lenght of latitude arc (great circle arc)
-      longlen = (mlongmax-mlongmin)*mR
-      !Number of aggregates along latitude arc
-      mlongnum = floor(longlen/mlongstp)
-      !Latitude step in radians
-      mlongradiansstp = (mlongmax-mlongmin)/REAL(mlongnum)
-      DO i1 = 1, mlongnum
-         !Colatitude in radians
-         mlong = mlongmin + mlongradiansstp*(i1-0.5)
-         m = m + 1
-         !Polar coordinates
-         !Longitude
-         mx1(m) = mlong  ! mR * cos(mlong)
-         !Radial
-         mx2(m) = mR     ! mR * sin(mlong)
-      END DO
-   END DO
-
-   !Set colatitude on the equatorial plane
-   mx3 = pi/2.0
-
-   END IF
-   
-   IF(dimensions == 3) THEN
-
-   DO i2 = 1, mrnum
-      !LAYER i3
-      !Find radius
-      mR = mradiusmin + mradiusstp*(i2-0.5)
-      !Find lenght of latitude arc (great circle arc)
-      colatlen = (mcolatmax-mcolatmin)*mR
-      !Number of aggregates along latitude arc
-      mcolatnum = floor(colatlen/mcolatstp)
-      !Latitude step in radians
-      mcolatradiansstp = (mcolatmax-mcolatmin)/REAL(mcolatnum)
-      DO i3 = 1, mcolatnum
-         !Colatitude in radians
-         mcolat = mcolatmin + mcolatradiansstp*(i3-0.5)
-         !Find lenght of longitude arc 
-         longlen = (mlongmax-mlongmin)*mR*sin(mcolat)
-         !Number of aggregates along longitude   
-         mlongnum = floor(longlen/mlongstp)
-         !Longitude step in radians            
-         mlongradiansstp = (mlongmax-mlongmin)/REAL(mlongnum)
-         DO i1 = 1, mlongnum
-            !Longitude in radians
-            mlong = mlongmin + mlongradiansstp*(i1-0.5)
-            m = m + 1
-            !Spherical coordinates
-            !Longitude
-            mx1(m) = mlong  !mR * sin(mcolat) * cos(mlong)
-            !Radial
-            mx2(m) = mR     !mR * sin(mcolat) * sin(mlong)
-            !Colatitude
-            mx3(m) = mcolat !mR * cos(mcolat)
-         END DO
-      END DO
-   END DO
-
-   !Add markers for Yang grid
-   IF(yy == 2) THEN
-
-     marknum00 = marknum/2
-     DO i1=marknum00+1,marknum
-        mx1(i1) = mx1(i1-marknum00)
-        mx2(i1) = mx2(i1-marknum00)
-        mx3(i1) = mx3(i1-marknum00)
-        mYY(i1) = 2                
-     END DO   
-
-   END IF
+      IF(dimensions == 3) THEN
+         !Add markers for Yang grid
+         IF(yy == 2) THEN
+           marknum00 = marknum/2
+           DO i1=marknum00+1,marknum
+              mx1(i1) = mx1(i1-marknum00)
+              mx2(i1) = mx2(i1-marknum00)
+              mx3(i1) = mx3(i1-marknum00)
+              mYY(i1) = 2
+           END DO
+         END IF
+      END IF
    
    END IF
+   !M3E!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    
-   END IF
-   
-   IF(fsemod == 0) THEN
+   IF(fsemod == 0 .OR. sbfmod > 0) THEN
 
 !!! tensor \epsilon_{ijk}
 
@@ -470,22 +389,25 @@
 
    CALL elastic_database(S0,dS0dp,dS0dp2,dS0dt,dS0dpt,dS0dp5,dS0dt5)
 
-!!! allocation of the dimensions of the arrays
-
-   ALLOCATE(xe1(size),xe2(size),xe3(size))
-
-   ALLOCATE(odf(marknum,size))
-   ALLOCATE(odf_ens(marknum,size))
-
-   ALLOCATE(ran0(3*size))
-
-   ALLOCATE(acs(size,3,3,marknum),acs0(size,3,3))
-   ALLOCATE(acs_ens(size,3,3,marknum))
-
 !!! initialization of orientations - uniformally random distribution
 !!! Rmq cos(theta) used to sample the metric Eulerian space
 
+!!! allocation of the dimensions of the arrays
+
+   ALLOCATE(acs0(size,3,3))
+
+   ALLOCATE(xe1(size),xe2(size),xe3(size))
+
+   ALLOCATE(ran0(3*size))
+
+   CALL RANDOM_SEED(size=i)
+   ALLOCATE(seed(i))
+   do j1 = 1,i
+      seed(j1) = 0
+   end do
+   CALL RANDOM_SEED(put=seed)
    CALL RANDOM_NUMBER(ran0)
+   DEALLOCATE(seed)
 
    i = 1
 
@@ -516,7 +438,20 @@
       acs0(i,3,3)=COS(theta)
 
    END DO
+
+   DEALLOCATE(xe1,xe2,xe3,ran0)
    
+   IF(sbfmod == 0) THEN
+
+   ALLOCATE(acs(size,3,3,marknum),acs_ens(size,3,3,marknum))
+
+   ALLOCATE(odf(marknum,size))
+   ALLOCATE(odf_ens(marknum,size))
+
+   dummy=marknum*size
+   dummy=dummy*(9 + 9 + 1 + 1) 
+   memmark = memmark + dummy           
+
 !!! Set random initial LPO and same grain size
 
    DO i = 1 , marknum
@@ -528,7 +463,60 @@
    
    END DO
 
-   DEALLOCATE(xe1,xe2,xe3,ran0)
+   ELSE
+
+   nbox3 = 20
+   nbox = nbox3
+   nboxnum = nbox3**3
+   ALLOCATE(acs0sbf(nboxnum,3,3))
+
+   dph = pi/REAL(nbox)
+   dcosth = 2.0/REAL(nbox)
+   dps = pi/REAL(nbox)
+
+   DO iph = 1, nbox
+      ph = (iph - 0.5)*dph
+   DO ith = 1, nbox
+      costh = -1.0 + (ith - 0.5)*dcosth
+      th = dacos(costh)
+   DO ips = 1, nbox
+      ps = (ips - 0.5)*dps
+
+      i = ips + (ith-1)*nbox + (iph-1)*nbox*nbox
+
+!!! Direction cosine matrix
+!!! acs(k,j) = cosine of the angle between the kth crystallographic axes and the
+!jth external axes 
+
+      !CALL EULER_TO_DIRCOS(ph,th,ps,acs0sbf(i,:,:))  ! direction cosines g_(ij) of crystal axes
+
+   ENDDO; ENDDO; ENDDO
+
+   !Compute calc_sj for Olivine
+   p21 = dlog(tau(1,2)/tau(1,1))
+   p31 = dlog(tau(1,3)/tau(1,1))
+   p41 = dlog(tau(1,5)/tau(1,1))
+   
+   ! Calculate spin amplitudes for the four slip systems
+   !CALL SPIN_AMPLITUDES(p21,p31,p41,stressexp(1),biga_ol)
+
+! Calculate partial expansion coefficients \mathcal C_{sj} for three slip
+! systems of olivine
+   !CALL CALCSJ(biga_ol,calc_ol)
+
+   !Compute calc_sj for Orthopyroxene
+   p21 = 0 !dlog(40d0/40d0)
+   p31 = 0 !dlog(40d0/40d0)
+   p41 = dlog(1d0/5d0)
+
+! Calculate spin amplitudes for the four slip systems
+   !CALL SPIN_AMPLITUDES(p21,p31,p41,stressexp(1),biga_opx)
+
+! Calculate partial expansion coefficients \mathcal C_{sj} for three slip
+! systems of olivine
+   !CALL CALCSJ(biga_opx,calc_opx)
+
+   END IF   
 
 !!! Pre-existing mantle fabric
 
@@ -601,15 +589,27 @@
 
    END IF
 
-   write(*,"(a)"),' INITIALIZE EULERIAN GRID, AGGREGATES, ETC. OK!'
-   write(*,*)
-   write(*,"(a)"),'********************************************************'
-   write(*,"(a)"),'********************************************************'
-   write(*,*)
+   if ( rankMPI .eq. 1 ) then
+      write(*,*)
+      write(*,'(a,1f6.2,a)') ' Memory needed for nodes is ',memnodes*8*sizeMPI/1d9,' GB'
+  
+      write(*,*)
+      write(*,'(a,1f6.2,a)') ' Memory needed for aggregates is ',((memmark-1)*8+1)*sizeMPI/1d9,' GB'
+      ! Add 5% to account for other variables declared
+      write(*,*)
+      write(*,'(a,1f6.2,a)') ' Total memory needed is about ',((memnodes+memmark)*8*sizeMPI/1d9)*1.05d0, ' GB'
+      write(*,*)
+   endif
+
+   if ( rankMPI .eq. 1 ) then
+      write(*,"(a)") ' INITIALIZE EULERIAN GRID, AGGREGATES, ETC. OK!'
+      write(*,*)
+      write(*,"(a)") '********************************************************'
+      write(*,"(a)") '********************************************************'
+      write(*,*)
+   endif
 
    RETURN
-
-   1000 FORMAT(101(1pe14.6))
 
    END SUBROUTINE init0
    
@@ -624,18 +624,35 @@
 
    IMPLICIT NONE
 
-   INTEGER :: m,nx(3)
+   !M3E!!!!!!!!!!!!
+   include 'mpif.h'
+   !M3E!!!!!!!!!!!!
+
+   INTEGER :: m,nx(3),sbfmod0,size0
    DOUBLE PRECISION :: lr,rr,cr
    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: odf0,odf_ens0
    DOUBLE PRECISION, DIMENSION(:,:,:), ALLOCATABLE :: acs00,acs_ens00
    DOUBLE PRECISION, DIMENSION(3,3) :: fse0
-   ! matrixes of pre-existing crystal volume fraction, orientation and FSE
 
-   INTEGER(HID_T)  :: file_id, group_id, dataspace_id, dataset_id, attr_id, dcpl, memtype ! Handles
+   ! matrixes of pre-existing crystal volume fraction, orientation and FSE
+   INTEGER(HID_T)  :: file_id ! Handles
+!  INTEGER(HID_T)  :: dcpl, group_id, dataspace_id, dataset_id, attr_id, memtype ! unused
    INTEGER     ::   error  ! Error flag
 
-   print *,'Impose preexisting fabric'
-   print *
+   !M3E!!!!!!!!!!!!!!!!!!!!!
+   integer :: errMPI,rankMPI
+   !M3E!!!!!!!!!!!!!!!!!!!!!
+
+   !M3E!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   ! Get MPI info
+   call MPI_COMM_RANK(MPI_COMM_WORLD,rankMPI,errMPI)
+   rankMPI = rankMPI + 1
+   !M3E!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+   if ( rankMPI .eq. 1 ) then
+      print *,'Impose preexisting fabric'
+      print *
+   endif
 
    ALLOCATE(acs00(size,3,3),acs_ens00(size,3,3),odf0(size),odf_ens0(size))
 
@@ -649,13 +666,31 @@
 
    CALL H5Fopen_f('../D-REX_S/fossilfabric.h5', H5F_ACC_RDONLY_F, file_id, error)
 
-   nx(1)=size
-   nx(2)=3
-   nx(3)=3
-   CALL loadsave_double(0,3,file_id,nx(1:3),H5T_NATIVE_DOUBLE,acs00,'acs',0)
-   CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,odf0,'odf',0)
-   CALL loadsave_double(0,3,file_id,nx(1:3),H5T_NATIVE_DOUBLE,acs_ens00,'acs_ens',0)
-   CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,odf_ens0,'odf_ens',0)
+   CALL loadsave_integer(0,1,file_id,1,H5T_NATIVE_INTEGER,sbfmod0,'sbfmod',0)
+
+   IF(sbfmod == 0 .AND. sbfmod0 == 1) THEN
+      print *,'Fossil fabric for DREX aggregates computed with SBFTEX in D-REX_S'
+      STOP
+   END IF
+ 
+   IF(sbfmod == 0) THEN
+
+      CALL loadsave_integer(0,1,file_id,1,H5T_NATIVE_INTEGER,size0,'size',0)
+      IF(size0 /= size) THEN
+         print *,'Fossil fabric has different number of crystals'
+         STOP
+      END IF
+
+      nx(1)=size
+      nx(2)=3
+      nx(3)=3
+      CALL loadsave_double(0,3,file_id,nx(1:3),H5T_NATIVE_DOUBLE,acs00,'acs',0)
+      CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,odf0,'odf',0)
+      CALL loadsave_double(0,3,file_id,nx(1:3),H5T_NATIVE_DOUBLE,acs_ens00,'acs_ens',0)
+      CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,odf_ens0,'odf_ens',0)
+
+   END IF
+
    nx(1)=3
    nx(2)=3
    CALL loadsave_double(0,2,file_id,nx(1:2),H5T_NATIVE_DOUBLE,fse0,'Fij',0)

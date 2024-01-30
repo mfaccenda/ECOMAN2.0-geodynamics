@@ -1,23 +1,33 @@
 #!/bin/bash
 
-h5pfc -qopenmp -o drex_m     \
-	module.f90           \
-	D-REX_M.f90  	     \
-	read_input_file.f90  \
-	initgrid.f90         \
-	loadsave.f90         \
-	eulerian2D.f90 	     \
-	eulerian3D.f90 	     \
-	strainLPO.f90        \
-	../DATABASES/elastic_database.f90 \
-	../ext_funct/inverse.f90 \
-	../ext_funct/dsyevc3.f \
-        ../ext_funct/dsyevh3.f \
-	../ext_funct/dsyevq3.f \
-	../ext_funct/dsytrd3.f	      
-	 
+rm *.mod
+rm -r objects/
+
+h5pfc -O3 -qopenmp -o drex_m     \
+    precision.f90        \
+    DistComm.f90         \
+    DistGrid.F90         \
+    module.f90           \
+    D-REX_M.f90  	 \
+    read_input_file.f90  \
+    initgrid.f90         \
+    loadsave.f90         \
+    eulerian2D.f90 	 \
+    eulerian3D.f90 	 \
+    strainLPO.f90        \
+    tensor_calc.f90      \
+    ../DATABASES/elastic_database.f90 \
+    ../shared_funct/readfunct.f90 \
+    ../shared_funct/rotmat.f90 \
+    ../shared_funct/inverse.f90 \
+    ../shared_funct/dsyevc3.f \
+    ../shared_funct/dsyevh3.f \
+    ../shared_funct/dsyevq3.f \
+    ../shared_funct/dsytrd3.f	      
+    
 if [ ! -s objects/ ];then \
 	mkdir objects/;\
 fi;
-	 
+    
 mv *.o objects/
+

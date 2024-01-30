@@ -2,7 +2,7 @@
  !! ---------------------------------------------------------------------------
  !! ---------------------------------------------------------------------------
  !!
- !!    Copyright (c) 2018-2020, Universita' di Padova, Manuele Faccenda
+ !!    Copyright (c) 2018-2023, Universita' di Padova, Manuele Faccenda
  !!    All rights reserved.
  !!
  !!    This software package was developed at:
@@ -50,8 +50,13 @@
    DOUBLE PRECISION, DIMENSION(3,3,1) :: Fij
    double precision, dimension(21) :: XEC
    ! finite strain tensor 
+   ! SBFTEX parameters and variables
+   DOUBLE PRECISION :: rmax
+   INTEGER :: nbox3,nboxnum
+   DOUBLE PRECISION, DIMENSION(3,0:3) :: calc_ol,calc_opx
+   DOUBLE PRECISION, DIMENSION(4) ::  biga_ol,biga_opx
 
-   CHARACTER(100) ::output_name 
+   CHARACTER(500) ::output_name 
    ! name of the imput file containing X1, X3, Ui and Dij
 
 !!! LPO calculation
@@ -59,14 +64,14 @@
    DOUBLE PRECISION, DIMENSION(1,3,3) :: l,e
    ! velocity gradient tensor and strain rate tensor
 
-   DOUBLE PRECISION :: epsnot(1),mtk(1),mpgpa(1),mx1(1),mx2(1),mx3(1)
+   DOUBLE PRECISION :: epsnot(1),mtk0,mpgpa0,mx1(1),mx2(1),mx3(1)
    ! reference strain rate
 
 !!! Rock properties
 
-   DOUBLE PRECISION, DIMENSION(4) :: Xol,stressexp,lambda,Mob,chi,fractdislrock,top,bot
-   DOUBLE PRECISION, DIMENSION(4,12) :: tau
-   INTEGER, DIMENSION(4,2) :: single_crystal_elastic_db
+   DOUBLE PRECISION, DIMENSION(5) :: Xol,stressexp,lambda,Mob,chi,fractdislrock,top,bot
+   DOUBLE PRECISION, DIMENSION(5,12) :: tau
+   INTEGER, DIMENSION(5,2) :: single_crystal_elastic_db
    ! Xol = fraction of anisotropic phase in the aggregate
    ! stressexp = stress exponent for non-Newtonian behavior
    ! lambda = nucleation parameter
@@ -90,7 +95,7 @@
    ! volume fraction of the enstatite grains
 
    DOUBLE PRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: acs,acs_ens
-   DOUBLE PRECISION, DIMENSION(:,:,:),   ALLOCATABLE :: acs0
+   DOUBLE PRECISION, DIMENSION(:,:,:),   ALLOCATABLE :: acs0,acs0sbf
    !! matrix of direction cosine
 
    INTEGER degstp,nxy,nz
@@ -105,15 +110,8 @@
    DOUBLE PRECISION :: ln_fse
    ! finite strain = ln(longaxis/shortaxis)
 
-   DOUBLE PRECISION, DIMENSION(3) :: phi_a  
-   ! average orientation of a-axis
-
-   DOUBLE PRECISION :: perc_a
-   ! percentage of S wave anisotropy
-
 !!! Elastic tensor 
 
-   DOUBLE PRECISION, DIMENSION(6,6) :: Voigt,Reuss,Mixed
    DOUBLE PRECISION, DIMENSION(20,6,6) :: S0,dS0dp,dS0dp2,dS0dt,dS0dpt
    DOUBLE PRECISION, DIMENSION(6,6) :: dS0dp5,dS0dt5,mandel_scale
    DOUBLE PRECISION, DIMENSION(6,6,1) :: Sav
@@ -121,7 +119,7 @@
 
 !!! SPO parameters
 
-   INTEGER :: spomod,ptmod,eosmod,meltspomod,spograinmod,sporockmod,numminermax,numminer(5),rocknum=5,marknum,fsemod=0
+   INTEGER :: sbfmod,spomod,ptmod,eosmod,meltspomod,spograinmod,sporockmod,numminermax,numminer(5),rocknum=5,marknum,fsemod=0
    CHARACTER :: meltfilename              
    DOUBLE PRECISION :: volfractrock(5),ro_back,ro_incl,phi_spo
    DOUBLE PRECISION :: x10size,x20size,X1n(1),X2n(1)
@@ -131,7 +129,7 @@
    DOUBLE PRECISION, DIMENSION(3,3) :: kron ! tensor of indices to form Cijkl from Sij
    DOUBLE PRECISION, DIMENSION(6,6) :: Cback,Cinc
    DOUBLE PRECISION, DIMENSION(3,3,3,3) :: Is,Id 
-   !Parameters set in inputspo.dat
+   !Parameters set in spo_input.dat
    DOUBLE PRECISION, DIMENSION(:,:), ALLOCATABLE :: AA,BB,CC,FF,LLL,NN,RRho
    !TI moduli f(P,T) and melt content
 

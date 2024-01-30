@@ -2,7 +2,7 @@
  !! ---------------------------------------------------------------------------
  !! ---------------------------------------------------------------------------
  !!
- !!    Copyright (c) 2018-2020, Universita' di Padova, Manuele Faccenda
+ !!    Copyright (c) 2018-2023, Universita' di Padova, Manuele Faccenda
  !!    All rights reserved.
  !!
  !!    This software package was developed at:
@@ -44,13 +44,21 @@
 
    MODULE comvar
 
+   ! MPI proc distribution along axis
+   integer :: nproc1,nproc2,nproc3
+
    !! interval of calculation of the LPO in time      
    INTEGER :: Tinit, Tstep, Tend, OutputStep, tnum, numdt, nt
    ! time step and file number
-   DOUBLE PRECISION :: dt,timesum,dt0,timesum0,timemax,pi,deg2rad
+   DOUBLE PRECISION :: dt,timesum,dt0,timesum0,timemax,pi,deg2rad,strainmax
    CHARACTER (3) :: dt_to_str
    ! Operating modes
-   INTEGER :: fsemod,ptmod,fractdislmod,fabrictransformmod,uppermantlemod,eosmod,fossilfabric
+   INTEGER :: sbfmod,fsemod,ptmod,fractdislmod,fabrictransformmod,uppermantlemod,eosmod,fossilfabric
+   ! SBFTEX parameters and variables
+   DOUBLE PRECISION :: rmax
+   INTEGER :: nbox3,nboxnum
+   DOUBLE PRECISION, DIMENSION(3,0:3) :: calc_ol,calc_opx
+   DOUBLE PRECISION, DIMENSION(4) ::  biga_ol,biga_opx
 
 !!! Density thermodynamic database
    
@@ -81,8 +89,7 @@
 
 !!! Lagrangian grid - crystal aggregates   
 
-   INTEGER :: mnx1, mnx2, mnx3 !! number of aggregates in X1 and X2 direction
-   INTEGER :: marknum,marknum1 !! number of aggregates
+   INTEGER :: marknum
    DOUBLE PRECISION :: mx1min,mx2min,mx3min     
    DOUBLE PRECISION :: mx1max,mx2max,mx3max     
    DOUBLE PRECISION :: mx1stp,mx2stp,mx3stp 
@@ -91,7 +98,7 @@
    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: mx1,mx2,mx3
    ! X,Y grid points coordinates 
 
-   DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: rho,max_strain,time
+   DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: rho,max_strain,time_max_strain
    ! density, cumulative maximum strain
 
    INTEGER, DIMENSION(:), ALLOCATABLE :: rocktype,mYY
@@ -102,9 +109,9 @@
 
 !!! Rock properties
 
-   DOUBLE PRECISION, DIMENSION(4) :: Xol,stressexp,lambda,Mob,chi,fractdislrock,minx2,maxx2
-   DOUBLE PRECISION, DIMENSION(4,12) :: tau
-   INTEGER, DIMENSION(4,2) :: single_crystal_elastic_db
+   DOUBLE PRECISION, DIMENSION(5) :: Xol,stressexp,lambda,Mob,chi,fractdislrock,minx2,maxx2
+   DOUBLE PRECISION, DIMENSION(5,12) :: tau
+   INTEGER, DIMENSION(5,2) :: single_crystal_elastic_db
    ! Xol = fraction of anisotropic phase in the aggregate
    ! stressexp = stress exponent for non-Newtonian behavior
    ! lambda = nucleation parameter
@@ -136,7 +143,8 @@
    ! volume fraction of the enstatite grains
 
    DOUBLE PRECISION, DIMENSION(:,:,:,:), ALLOCATABLE :: acs,acs_ens
-   DOUBLE PRECISION, DIMENSION(:,:,:),   ALLOCATABLE :: acs0 
+   DOUBLE PRECISION, DIMENSION(:,:,:),   ALLOCATABLE :: acs0,acs0sbf 
+!   DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: f1_ol,f1_opx
    !! matrix of direction cosine
 
 !!! Output

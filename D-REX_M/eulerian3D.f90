@@ -2,7 +2,7 @@
  !! ---------------------------------------------------------------------------
  !! ---------------------------------------------------------------------------
  !!
- !!    Copyright (c) 2018-2020, Universita' di Padova, Manuele Faccenda
+ !!    Copyright (c) 2018-2023, Universita' di Padova, Manuele Faccenda
  !!    All rights reserved.
  !!
  !!    This software package was developed at:
@@ -332,7 +332,8 @@
 
    IMPLICIT NONE
 
-   DOUBLE PRECISION :: X1s,X2s,X3s,x1c,x2c,x3c,x1cc,x2cc,x3cc,shiftX,shiftY,shiftZ
+   DOUBLE PRECISION :: X1s,X2s,X3s,shiftX,shiftY,shiftZ
+!  DOUBLE PRECISION :: x1c,x2c,x3c,x1cc,x2cc,x3cc ! unused
    ! x and y coordinates of the point on the streamline
 
    DOUBLE PRECISION :: res
@@ -354,6 +355,11 @@
 !       | /       1----2
 !       |/ 
 !       ----- +X
+
+   ! initialization to avoid warning during compilation
+   xx = 0.d0
+   yy = 0.d0
+   zz = 0.d0
 
    if(shiftX .ne. 0) then
       if(x1periodic > 0 .and. yinyang == 1 .and. i1s== nx1-1) then
@@ -423,7 +429,8 @@
    DOUBLE PRECISION, DIMENSION(3,3) :: ee
    ! dummy for reference strain rate calculation
 
-   INTEGER :: nrot,tid
+   INTEGER :: tid
+!  INTEGER :: nrot ! unused
    ! number of rotations for the Jacobi
    DOUBLE PRECISION, DIMENSION(3) :: evals
    DOUBLE PRECISION, DIMENSION(3,3) :: evects
@@ -571,7 +578,8 @@
    y5 = Dij(yy,1,1,ix(1),iy(2),iz(1)) ; y6 = Dij(yy,1,1,ix(2),iy(2),iz(1))
    y7 = Dij(yy,1,1,ix(2),iy(2),iz(2)) ; y8 = Dij(yy,1,1,ix(1),iy(2),iz(2))
 
-   CALL interpshift(X1dum,X2dum,X3dum,i1s-1,i2s-1,i3s-1,(X1(i1s)+X1(i1s-1))/2d0,(X2(i2s)+X2(i2s-1))/2d0,(X3(i3s)+X3(i3s-1))/2d0,y1,y2,y3,y4,y5,y6,y7,y8,l(tid,1,1))
+   CALL interpshift(X1dum,X2dum,X3dum,i1s-1,i2s-1,i3s-1,(X1(i1s)+X1(i1s-1))/2d0,          &
+   &                (X2(i2s)+X2(i2s-1))/2d0,(X3(i3s)+X3(i3s-1))/2d0,y1,y2,y3,y4,y5,y6,y7,y8,l(tid,1,1))
 
    !dVy/dy at -stepx1/2,-stepx2/2,-stepx3/2
 
@@ -580,7 +588,8 @@
    y5 = Dij(yy,2,2,ix(1),iy(2),iz(1)) ; y6 = Dij(yy,2,2,ix(2),iy(2),iz(1))
    y7 = Dij(yy,2,2,ix(2),iy(2),iz(2)) ; y8 = Dij(yy,2,2,ix(1),iy(2),iz(2))
 
-   CALL interpshift(X1dum,X2dum,X3dum,i1s-1,i2s-1,i3s-1,(X1(i1s)+X1(i1s-1))/2d0,(X2(i2s)+X2(i2s-1))/2d0,(X3(i3s)+X3(i3s-1))/2d0,y1,y2,y3,y4,y5,y6,y7,y8,l(tid,2,2))
+   CALL interpshift(X1dum,X2dum,X3dum,i1s-1,i2s-1,i3s-1,(X1(i1s)+X1(i1s-1))/2d0,          &
+   &                (X2(i2s)+X2(i2s-1))/2d0,(X3(i3s)+X3(i3s-1))/2d0,y1,y2,y3,y4,y5,y6,y7,y8,l(tid,2,2))
 
    !dVz/dz
    y1 = Dij(yy,3,3,ix(1),iy(1),iz(1)) ; y2 = Dij(yy,3,3,ix(2),iy(1),iz(1))
@@ -588,7 +597,8 @@
    y5 = Dij(yy,3,3,ix(1),iy(2),iz(1)) ; y6 = Dij(yy,3,3,ix(2),iy(2),iz(1))
    y7 = Dij(yy,3,3,ix(2),iy(2),iz(2)) ; y8 = Dij(yy,3,3,ix(1),iy(2),iz(2))
 
-   CALL interpshift(X1dum,X2dum,X3dum,i1s-1,i2s-1,i3s-1,(X1(i1s)+X1(i1s-1))/2d0,(X2(i2s)+X2(i2s-1))/2d0,(X3(i3s)+X3(i3s-1))/2d0,y1,y2,y3,y4,y5,y6,y7,y8,l(tid,3,3))
+   CALL interpshift(X1dum,X2dum,X3dum,i1s-1,i2s-1,i3s-1,(X1(i1s)+X1(i1s-1))/2d0,          &
+   &                (X2(i2s)+X2(i2s-1))/2d0,(X3(i3s)+X3(i3s-1))/2d0,y1,y2,y3,y4,y5,y6,y7,y8,l(tid,3,3))
 
 !!! Incompressibility
    !l(tid,3,3) = -l(tid,1,1)-l(tid,2,2)
@@ -1041,7 +1051,8 @@
 
       END IF
 
-   ELSE IF(rocktype(m) > 10 .AND. rocktype(m) < 100 .AND. mx1(m) > x1min .AND. mx1(m) < x1max .AND. mx2(m) > x2min .AND. mx2(m) < x2max .AND. mx3(m) > x3min .AND. mx3(m) < x3max) THEN 
+   ELSE IF(rocktype(m) > 10 .AND. rocktype(m) < 100 .AND. mx1(m) > x1min .AND.            &
+   &       mx1(m) < x1max .AND. mx2(m) > x2min .AND. mx2(m) < x2max .AND. mx3(m) > x3min .AND. mx3(m) < x3max) THEN 
 
       rocktype(m) = rocktype(m) - 10
 
@@ -1065,7 +1076,8 @@
    IMPLICIT NONE
   
    DOUBLE PRECISION fractdisl,y1,y2,y3,y4,y5,y6,y7,y8 
-   INTEGER m,n1,n2,i1,i2,i3,yy
+   INTEGER m,i1,i2,i3,yy
+!  INTEGER n1,n2 ! unused
 
    yy = mYY(m)
 

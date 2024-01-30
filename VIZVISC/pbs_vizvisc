@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#PBS -q sm
+#PBS -N vizvisc      
+#PBS -l walltime=24:00:00
+#PBS -l nodes=1:ncpus=28   
+#PBS -l mem=50gb
+
+# set path of wroking directory
+cd $PBS_O_WORKDIR
+
+# set number of threads     
+export OMP_NUM_THREADS=28 
+
+ ./vizvisc ../cookbooks/2Dpolar_convection/vizvisc_input.dat
+

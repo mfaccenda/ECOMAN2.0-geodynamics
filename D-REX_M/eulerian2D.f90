@@ -2,7 +2,7 @@
  !! ---------------------------------------------------------------------------
  !! ---------------------------------------------------------------------------
  !!
- !!    Copyright (c) 2018-2020, Universita' di Padova, Manuele Faccenda
+ !!    Copyright (c) 2018-2023, Universita' di Padova, Manuele Faccenda
  !!    All rights reserved.
  !!
  !!    This software package was developed at:
@@ -214,7 +214,8 @@
 
    IMPLICIT NONE
 
-   DOUBLE PRECISION :: X1s,X2s,x1c,x2c,x1cc,x2ccc,shiftX,shiftY
+   DOUBLE PRECISION :: X1s,X2s,shiftX,shiftY
+!  DOUBLE PRECISION :: x1c,x2c,x1cc,x2ccc ! unused
    ! x and y coordinates of the point on the streamline
 
    DOUBLE PRECISION :: res
@@ -235,6 +236,10 @@
 !       |  
 !       ----- +X
 !                          
+
+   ! initialization to avoid warning during compilation
+   xx = 0.d0
+   yy = 0.d0
 
    if(shiftX .ne. 0) then
       if(x1periodic .ne. 0 .and. i1s== nx1-1) then
@@ -281,7 +286,8 @@
    DOUBLE PRECISION :: X1s,X2s
    ! x and y coordinates of the point on the streamline
 
-   INTEGER :: i1s,i2s,i1,i2,m
+   INTEGER :: i1s,i2s,i1,i2
+!  INTEGER :: m  ! unused
    ! indices of the UPPER-LEFT grid point closest to the considered point
 
    DOUBLE PRECISION :: y1,y2,y3,y4
@@ -290,7 +296,8 @@
    DOUBLE PRECISION, DIMENSION(3,3) :: ee
    ! dummy for reference strain rate calculation
 
-   INTEGER :: nrot,tid
+   INTEGER :: tid
+!  INTEGER :: nrot ! unused
    ! number of rotations for the Jacobi
    DOUBLE PRECISION, DIMENSION(3) :: evals
    DOUBLE PRECISION, DIMENSION(3,3) :: evects
@@ -445,14 +452,14 @@
       IF(X1i < x1min) X1i = x1max + X1i - x1min
       IF(X1i > x1max) X1i = x1min + X1i - x1max
    ELSE
-      !IF(X1i < x1min) X1i = x1min ; IF (X1i > x1max) X1i = x1max
+      IF(X1i < x1min) X1i = x1min ; IF (X1i > x1max) X1i = x1max
    END IF
    !!! Check for periodicity along x2
    IF(x2periodic > 0) THEN
       IF(X2i < x2min) X2i = x2max + X2i - x2min
       IF(X2i > x2max) X2i = x2min - X2i - x2max
    ELSE
-      !IF(X2i < x2min) X2i = x2min ; IF (X2i > x2max) X2i = x2max
+      IF(X2i < x2min) X2i = x2min ; IF (X2i > x2max) X2i = x2max
    END IF
 
 !!! find the UPPER-LEFT grid point closest to the point of calculation
@@ -471,14 +478,14 @@
       IF(X1i < x1min) X1i = x1max + X1i - x1min
       IF(X1i > x1max) X1i = x1min + X1i - x1max
    ELSE
-      !IF(X1i < x1min) X1i = x1min ; IF (X1i > x1max) X1i = x1max
+      IF(X1i < x1min) X1i = x1min ; IF (X1i > x1max) X1i = x1max
    END IF
    !!! Check for periodicity along x2
    IF(x2periodic > 0) THEN
       IF(X2i < x2min) X2i = x2max + X2i - x2min
       IF(X2i > x2max) X2i = x2min - X2i - x2max
    ELSE
-      !IF(X2i < x2min) X2i = x2min ; IF (X2i > x2max) X2i = x2max
+      IF(X2i < x2min) X2i = x2min ; IF (X2i > x2max) X2i = x2max
    END IF
 
 !!! find the UPPER-LEFT grid point closest to the point of calculation
@@ -497,14 +504,14 @@
       IF(X1i < x1min) X1i = x1max + X1i - x1min
       IF(X1i > x1max) X1i = x1min + X1i - x1max
    ELSE
-      !IF(X1i < x1min) X1i = x1min ; IF (X1i > x1max) X1i = x1max
+      IF(X1i < x1min) X1i = x1min ; IF (X1i > x1max) X1i = x1max
    END IF
    !!! Check for periodicity along x2
    IF(x2periodic > 0) THEN
       IF(X2i < x2min) X2i = x2max + X2i - x2min
       IF(X2i > x2max) X2i = x2min - X2i - x2max
    ELSE
-      !IF(X2i < x2min) X2i = x2min ; IF (X2i > x2max) X2i = x2max
+      IF(X2i < x2min) X2i = x2min ; IF (X2i > x2max) X2i = x2max
    END IF
 
 !!! find the UPPER-LEFT grid point closest to the point of calculation
@@ -516,6 +523,16 @@
 
    dx = (kx1/2d0+kx2+kx3+kx4/2d0)/3d0
    dy = (ky1/2d0+ky2+ky3+ky4/2d0)/3d0
+
+   !Orthogonal motion of external aggregates
+   IF(rocktype(m) < 10) THEN
+      IF(mx1(m)+dx < x1min .OR. mx1(m)+dx > x1max) dy = 0
+      IF(mx2(m)+dy < x2min .OR. mx2(m)+dy > x2max) dx = 0
+   END IF
+   IF(rocktype(m) > 10) THEN
+      IF(mx1(m) < x1min .OR. mx1(m) > x1max) dy = 0
+      IF(mx2(m) < x2min .OR. mx2(m) > x2max) dx = 0
+   END IF
 
    mx1(m) = mx1(m) + dx
    mx2(m) = mx2(m) + dy
@@ -539,7 +556,8 @@
          IF(mx2(m) < x2min .OR. mx2(m) > x2max) rocktype(m) = rocktype(m) + 10
       END IF
 
-   ELSE IF(rocktype(m) > 10 .AND. rocktype(m) < 100 .AND. mx1(m) > x1min .AND. mx1(m) < x1max .AND. mx2(m) > x2min .AND. mx2(m) < x2max) THEN 
+   ELSE IF(rocktype(m) > 10 .AND. rocktype(m) < 100 .AND. mx1(m) > x1min .AND.            &
+   &       mx1(m) < x1max .AND. mx2(m) > x2min .AND. mx2(m) < x2max) THEN 
 
       rocktype(m) = rocktype(m) - 10 
 
@@ -562,8 +580,10 @@
 
    IMPLICIT NONE
   
-   DOUBLE PRECISION fractdisl,y1,y2,y3,y4,y5,y6,y7,y8 
-   INTEGER m,n1,n2,i1,i2,i3
+   DOUBLE PRECISION fractdisl,y1,y2,y3,y4
+!  DOUBLE PRECISION y5,y6,y7,y8 ! unused
+   INTEGER m,i1,i2
+!  INTEGER n1,n2,i3 ! unused
 
    
    !!! Fraction of dislocation creep
@@ -681,120 +701,3 @@
 
    END SUBROUTINE rhopt           
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE isotropicmoduli(m,mtk,mpgpa,K,G) 
-
-   USE comvar
-   USE omp_lib
-
-   IMPLICIT NONE
-  
-   DOUBLE PRECISION mtk,mpa,mpgpa,mpb,ee,n,Vp,Vs,K,K0,K1,K2,K3,G,G0,G1,G2,G3,y1,y2,y3,y4,y5,y6,y7,y8 
-   INTEGER m,n1,n2,i1,i2,i3,i1s,i2s,i3s,yy
-
-!                          
-!                          
-!                 2----4   
-!       +Y        |    |   
-!       |         |    |  
-!       |         |    | 
-!       |         1----3
-!       |  
-!       ----- +X
- 
-   ! 2D model
-   IF(dimensions == 2) THEN
-
-   CALL upperleft2D(mx1(m),mx2(m),i1,i2)
-  
-   !!! Temperature
-   y1 = Tk(1,i1  ,i2,1) ;     y2 = Tk(1,i1  ,i2+1,1)
-   y3 = Tk(1,i1+1,i2,1) ;     y4 = Tk(1,i1+1,i2+1,1)
-
-   CALL interp2D(mx1(m),mx2(m),i1,i2,y1,y2,y3,y4,mtk)
-
-   !!! Pressure    
-   y1 = Pa(1,i1  ,i2,1) ;     y2 = Pa(1,i1  ,i2+1,1)
-   y3 = Pa(1,i1+1,i2,1) ;     y4 = Pa(1,i1+1,i2+1,1)
-
-   CALL interp2D(mx1(m),mx2(m),i1,i2,y1,y2,y3,y4,mpa)
-
-   ! 3D model
-   ELSE
-
-   yy = mYY(m)
-
-   CALL upperleft(mx1(m),mx2(m),mx3(m),i1,i2,i3)
-
-   !!! Temperature
-   y1 = Tk(yy,i1,i2,i3) ;       y2 = Tk(yy,i1+1,i2,i3)
-   y3 = Tk(yy,i1+1,i2,i3+1) ;   y4 = Tk(yy,i1,i2,i3+1)
-   y5 = Tk(yy,i1,i2+1,i3) ;     y6 = Tk(yy,i1+1,i2+1,i3)
-   y7 = Tk(yy,i1+1,i2+1,i3+1) ; y8 = Tk(yy,i1,i2+1,i3+1)
-
-   CALL interp(mx1(m),mx2(m),mx3(m),i1,i2,i3,y1,y2,y3,y4,y5,y6,y7,y8,mtk)
-
-   !!! Pressure    
-   y1 = Pa(yy,i1,i2,i3) ;       y2 = Pa(yy,i1+1,i2,i3)
-   y3 = Pa(yy,i1+1,i2,i3+1) ;   y4 = Pa(yy,i1,i2,i3+1)
-   y5 = Pa(yy,i1,i2+1,i3) ;     y6 = Pa(yy,i1+1,i2+1,i3)
-   y7 = Pa(yy,i1+1,i2+1,i3+1) ; y8 = Pa(yy,i1,i2+1,i3+1)
-
-   CALL interp(mx1(m),mx2(m),mx3(m),i1,i2,i3,y1,y2,y3,y4,y5,y6,y7,y8,mpa)
-
-   END IF
-
-   IF(mtk<300d0) mtk=300d0
-   IF(mpa<1d5) mpa=1d5
-
-   ! Transform pressure in GPa
-   mpgpa = mpa / 1d9
-
-   !!! Density
-
-   ! Transform pressure from Pascal to bar
-   mpb = mpa / 1d5
-
-   ! ABCD-4Cell Number 
-   ee = (mtk-tkmin)/tkstp
-   IF(ee < 0) ee=0
-   IF(ee > REAL(tknum)) ee=REAL(tknum)
-   n=(mpb-pbmin)/pbstp 
-   IF(n < 0) n=0
-   IF(n > REAL(pbnum)) n=REAL(pbnum)
-   n1=FLOOR(ee) + 1
-   IF(n1 < 1) n1=1
-   IF(n1 > tknum-1) n1=tknum-1
-   n2=FLOOR(n)+1
-   IF(n2 < 1) n2=1
-   IF(n2 > pbnum-1) n2=pbnum-1
-   ! Calc normalized distances 
-   ee=(ee-REAL(n1-1))
-   n=(n-REAL(n2-1))
-   ! Vs,Vp values
-   ! 0 2
-   ! 1 3 
-   G0=td_vs(n1  ,n2  )
-   G1=td_vs(n1  ,n2+1)
-   G2=td_vs(n1+1,n2  )
-   G3=td_vs(n1+1,n2+1)
-   K0=td_vp(n1  ,n2  )
-   K1=td_vp(n1  ,n2+1)
-   K2=td_vp(n1+1,n2  )
-   K3=td_vp(n1+1,n2+1)
-   
-   !Vs (km/s)
-   Vs = ((G0*(1.0-n)+G1*n)*(1.0-ee)+(G2*(1.0-n)+G3*n)*ee)
-   !Swave modulus (GPa)
-   G = rho(m)*(Vs)**2/1d3
-
-   !Vp (km/s)
-   Vp = ((K0*(1.0-n)+K1*n)*(1.0-ee)+(K2*(1.0-n)+K3*n)*ee)
-   !Pwave modulus (GPa)
-   K = rho(m)*(Vp)**2/1d3 
-
-   RETURN
-
-   END SUBROUTINE isotropicmoduli 

@@ -2,7 +2,7 @@
  !! ---------------------------------------------------------------------------
  !! ---------------------------------------------------------------------------
  !!
- !!    Copyright (c) 2018-2020, Universita' di Padova, Manuele Faccenda
+ !!    Copyright (c) 2018-2023, Universita' di Padova, Manuele Faccenda
  !!    All rights reserved.
  !!
  !!    This software package was developed at:
@@ -89,7 +89,8 @@
    !LPO parameters
    write(*,"(a)"),'LPO PARAMETERS' 
    write(*,*)
-   call read_par_int(15,size3)        ; write(*,"(a,i5,a,i5)"),   ' size3:           ',size3,'  -->   Number of grains for each mineral phase: ',size3*size3*size3
+   call read_par_int(15,size3)
+   write(*,"(a,i5,a,i5)") ' size3:           ',size3,'  -->   Number of grains for each mineral phase: ',size3*size3*size3
    write(*,*)
 
    !Rocktype
@@ -237,18 +238,67 @@
       write(*,*)
    end if
 
+   !PPv +  MgO
+   call read_par_double(15,Xol(5))           ; 
+   call read_par_double(15,stressexp(5))     ; 
+   call read_par_double(15,Mob(5))           ; 
+   call read_par_double(15,chi(5))           ; 
+   call read_par_double(15,lambda(5))        ; 
+   call read_par_double(15,fractdislrock(5)) ; 
+   call read_par_double(15,tau(5,1))         ; 
+   call read_par_double(15,tau(5,2))         ; 
+   call read_par_double(15,tau(5,3))         ; 
+   call read_par_double(15,tau(5,4))         ; 
+   call read_par_double(15,tau(5,5))         ; 
+   call read_par_double(15,tau(5,6))         ; 
+   call read_par_double(15,tau(5,7))         ; 
+   call read_par_double(15,tau(5,8))         ; 
+   call read_par_double(15,tau(5,9))         ; 
+   call read_par_double(15,tau(5,10))         ; 
+   call read_par_int(15,single_crystal_elastic_db(5,1))        ; 
+   call read_par_int(15,single_crystal_elastic_db(5,2))        ; 
+   if(rocktype(1) == 5) then
+      write(*,"(a)")         ,' -------------------------'
+      write(*,"(a)")         ,' LOWER MANTLE: PPv + MGO'
+      write(*,"(a)")         ,' -------------------------'
+      write(*,*)
+      write(*,"(a,f8.2,a)")  ,' Xol(5):       ',Xol(5),' (%)'
+      write(*,"(a,f8.2)")    ,' stressexp(5): ',stressexp(5)
+      write(*,"(a,f14.2)")   ,' Mob(5): ',Mob(5)
+      write(*,"(a,f14.2)")   ,' chi(5): ',chi(5)
+      write(*,"(a,f11.2)")   ,' lambda(5): ',lambda(5)
+      write(*,"(a,f4.2)")    ,' fractdislrock(5): ',fractdislrock(5)
+      write(*,"(a,es12.2,a)"),' tau(5,1): ',tau(5,1),' [100](010)  PPv '         
+      write(*,"(a,es12.2,a)"),' tau(5,2): ',tau(5,2),' [100](001)  PPv '        
+      write(*,"(a,es12.2,a)"),' tau(5,3): ',tau(5,3),' [010](100)  PPv '        
+      write(*,"(a,es12.2,a)"),' tau(5,4): ',tau(5,4),' [010](001)  PPv '        
+      write(*,"(a,es12.2,a)"),' tau(5,5): ',tau(5,5),' [001](100)  PPv '        
+      write(*,"(a,es12.2,a)"),' tau(5,6): ',tau(5,6),' [001](010)  PPv '        
+      write(*,"(a,es12.2,a)"),' tau(5,7): ',tau(5,7),' [001](110)  PPv '        
+      write(*,"(a,es12.2,a)"),' tau(5,8): ',tau(5,8),' [001](-110) PPv '        
+      write(*,"(a,es12.2,a)"),' tau(5,9): ',tau(5,9),' [110](1-10)  PPv '        
+      write(*,"(a,es11.2,a)"),' tau(5,10): ',tau(5,10),' [-110](110) PPv '        
+      write(*,"(a,i5)")      ,' single_crystal_elastic_db(5,1)  : ',single_crystal_elastic_db(5,1)
+      write(*,"(a,i5)")      ,' single_crystal_elastic_db(5,2)  : ',single_crystal_elastic_db(5,2)
+      write(*,*)
+   end if
+
    write(*,"(a)"),'--------------------------------------------------------'
    write(*,*)
 
    !Set operating modes for the output       
    write(*,"(a)"),'SET OPERATING MODES FOR THE OUTPUT'       
    write(*,*)
+   !call read_par_int(15,sbfmod)         ; write(*,"(a,i9)"),    ' sbfmod:      ',sbfmod
+   !call read_par_double(15,rmax)        ; write(*,"(a,f9.2)")  ,' rmax:        ',rmax
+   sbfmod = 0; rmax = 0.9;
    call read_par_int(15,ptmod)          ; write(*,"(a,i9)"),    ' ptmod:       ',ptmod
    call read_par_int(15,eosmod)         ; write(*,"(a,i9)"),    ' eosmod:      ',eosmod
-   call read_par_double(15,mpgpa(1))    ; write(*,"(a,f9.2)")  ,' pressure:    ',mpgpa(1)
-   call read_par_double(15,mtk(1))      ; write(*,"(a,f9.2)")  ,' temperature: ',mtk(1)
+   call read_par_double(15,mpgpa0)      ; write(*,"(a,f9.2)")  ,' pressure:    ',mpgpa0  
+   call read_par_double(15,mtk0)        ; write(*,"(a,f9.2)")  ,' temperature: ',mtk0  
    call read_par_double(15,fractvoigt)  ; write(*,"(a,f9.2,a)"),' fractvoigt:  ',fractvoigt,' (%)'
    fractvoigt = fractvoigt/100d0
+   IF(sbfmod > 0) fsemod = 1
 
    call read_par_int(15,spomod)         ; write(*,"(a,i9)"),    ' spomod:      ',spomod
 
@@ -261,78 +311,3 @@
 
    END SUBROUTINE read_input_file
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE read_par_char(unitt,str)
-
-   IMPLICIT NONE
-
-   INTEGER :: i,ier,unitt
-   CHARACTER(500) :: str
-
-10 READ(unitt,"(a)",advance='yes',IOSTAT=ier) str
-   i=index(str,'#')
-   if(i==1 .OR. LEN_TRIM(str)==0) then
-      goto 10
-   end if
-
-   END SUBROUTINE read_par_char
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE read_par_int(unitt,intg)
-
-   IMPLICIT NONE
-
-   INTEGER ::i,ier,intg,unitt
-   CHARACTER(500) :: str
-
-10 READ(unitt,"(a)",advance='yes',IOSTAT=ier) str  
-   i=index(str,'#')
-   if(i==1 .OR. LEN_TRIM(str)==0) then
-      goto 10
-   else
-      read(str,*) intg
-   end if
-
-   END SUBROUTINE read_par_int 
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE read_par_double(unitt,dbl)
-
-   IMPLICIT NONE
-
-   INTEGER ::i,ier,unitt
-   DOUBLE PRECISION :: dbl
-   CHARACTER(500) :: str
-
-10 READ(unitt,"(a)",advance='yes',IOSTAT=ier) str  
-   i=index(str,'#')
-   if(i==1 .OR. LEN_TRIM(str)==0) then
-      goto 10
-   else
-      read(str,*) dbl
-   end if
-
-   END SUBROUTINE read_par_double
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE read_par_double6(unitt,dbl)
-
-   IMPLICIT NONE
-
-   INTEGER ::i,ier,unitt
-   DOUBLE PRECISION :: dbl(6)
-   CHARACTER(500) :: str
-
-10 READ(unitt,"(a)",advance='yes',IOSTAT=ier) str  
-   i=index(str,'#')
-   if(i==1 .OR. LEN_TRIM(str)==0) then
-      goto 10
-   else
-      read(str,*) dbl(:)
-   end if
-
-   END SUBROUTINE read_par_double6

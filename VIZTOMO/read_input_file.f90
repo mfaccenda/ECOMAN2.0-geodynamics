@@ -2,7 +2,7 @@
  !! ---------------------------------------------------------------------------
  !! ---------------------------------------------------------------------------
  !!
- !!    Copyright (c) 2018-2020, Universita' di Padova, Manuele Faccenda
+ !!    Copyright (c) 2018-2023, Universita' di Padova, Manuele Faccenda
  !!    All rights reserved.
  !!
  !!    This software package was developed at:
@@ -182,79 +182,3 @@
    CLOSE(15)
 
    END SUBROUTINE read_input_file
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE read_par_char(unitt,str)
-
-   IMPLICIT NONE
-
-   INTEGER :: i,ier,unitt
-   CHARACTER(500) :: str
-
-10 READ(unitt,"(a)",advance='yes',IOSTAT=ier) str
-   i=index(str,'#')
-   if(i==1 .OR. LEN_TRIM(str)==0) then
-      goto 10
-   end if
-
-   END SUBROUTINE read_par_char
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE read_par_int(unitt,intg)
-
-   IMPLICIT NONE
-
-   INTEGER ::i,ier,intg,unitt
-   CHARACTER(500) :: str
-
-10 READ(unitt,"(a)",advance='yes',IOSTAT=ier) str  
-   i=index(str,'#')
-   if(i==1 .OR. LEN_TRIM(str)==0) then
-      goto 10
-   else
-      read(str,*) intg
-   end if
-
-   END SUBROUTINE read_par_int 
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE read_par_double(unitt,dbl)
-
-   IMPLICIT NONE
-
-   INTEGER ::i,ier,unitt
-   DOUBLE PRECISION :: dbl
-   CHARACTER(500) :: str
-
-10 READ(unitt,"(a)",advance='yes',IOSTAT=ier) str  
-   i=index(str,'#')
-   if(i==1 .OR. LEN_TRIM(str)==0) then
-      goto 10
-   else
-      read(str,*) dbl
-   end if
-
-   END SUBROUTINE read_par_double
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE read_par_double6(unitt,dbl)
-
-   IMPLICIT NONE
-
-   INTEGER ::i,ier,unitt
-   DOUBLE PRECISION :: dbl(6)
-   CHARACTER(500) :: str
-
-10 READ(unitt,"(a)",advance='yes',IOSTAT=ier) str  
-   i=index(str,'#')
-   if(i==1 .OR. LEN_TRIM(str)==0) then
-      goto 10
-   else
-      read(str,*) dbl(:)
-   end if
-
-   END SUBROUTINE read_par_double6

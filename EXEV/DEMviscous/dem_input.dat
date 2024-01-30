@@ -1,4 +1,5 @@
-# Deviatoric/Total viscous tensor
+# output_filename
+# viscoustensordem.h5
 
   1   # Devmod: when active, compute the deviatoric viscous tensor, rather the total
 
@@ -38,7 +39,7 @@
   0.10d0 0.10d0 1.00d0   # Semiaxes increments
 
 # Inclusions volume fraction(s) to be saved in the database
-  0.5d0   # Volsavemin:  min volume fraction (must be multiple of Vstpdem)
+  5d-2  # Volsavemin:  min volume fraction (must be multiple of Vstpdem)
   0.3d0   # Volsavemax:  max volume fraction (must be multiple of Vstpdem)
   5d-2    # Volsavestep: volume increment    (must be multiple of Vstpdem)
 

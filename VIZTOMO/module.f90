@@ -2,7 +2,7 @@
  !! ---------------------------------------------------------------------------
  !! ---------------------------------------------------------------------------
  !!
- !!    Copyright (c) 2018-2020, Universita' di Padova, Manuele Faccenda
+ !!    Copyright (c) 2018-2023, Universita' di Padova, Manuele Faccenda
  !!    All rights reserved.
  !!
  !!    This software package was developed at:
@@ -144,7 +144,7 @@
    DOUBLE PRECISION, DIMENSION(3,3) :: kron ! tensor of indices to form Cijkl from Sij
    DOUBLE PRECISION, DIMENSION(6,6) :: Cback,Cinc
    DOUBLE PRECISION, DIMENSION(3,3,3,3) :: Is,Id 
-   !Parameters set in inputspo.dat
+   !Parameters set in spo_input.dat
    DOUBLE PRECISION, DIMENSION(:,:), ALLOCATABLE :: AA,BB,CC,FF,LLL,NN,RRho
    !TI moduli f(P,T) and melt content
 
@@ -159,6 +159,6 @@
    DOUBLE PRECISION :: tkmin,pbmin,tkstp,pbstp
    DOUBLE PRECISION, DIMENSION(:,:), ALLOCATABLE :: td_rho
    !PERPLE_X
-
+ 
    END MODULE comvar
 

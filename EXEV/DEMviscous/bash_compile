@@ -1,6 +1,9 @@
 #!/bin/bash
 
-h5pfc DEM.f90 -qopenmp -o dem
+h5pfc -O3 -qopenmp -o demviscous      \
+    DEMviscous.f90  		     \
+    ../../shared_funct/readfunct.f90 \
+    ../../shared_funct/inverse.f90
 
 if [ ! -s objects/ ];then \
         mkdir objects/;\

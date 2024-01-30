@@ -2,7 +2,7 @@
  !! ---------------------------------------------------------------------------
  !! ---------------------------------------------------------------------------
  !!
- !!    Copyright (c) 2018-2020, Universita' di Padova, Manuele Faccenda
+ !!    Copyright (c) 2018-2023, Universita' di Padova, Manuele Faccenda
  !!    All rights reserved.
  !!
  !!    This software package was developed at:
@@ -65,6 +65,7 @@
    ! average orientation of a-axis 
 
    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: perc_a,perc_a0
+   DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: perc_anis,perc_hexa,perc_tetra,perc_ortho,perc_mono,perc_tri
    ! percentage of S wave anisotropy
    
    DOUBLE PRECISION :: vp_anis,dvs_anis
@@ -120,6 +121,13 @@
          ln_fse_num = ln_fse_num + 1
          idx(ln_fse_num) = m
       END IF;END IF;END IF;END IF;END IF
+!IF(rocktype(m)<=0 .OR. rocktype(m)>=10 .OR. ln_fse(m)<ln_fse_min .OR. Sav(1,1,m) <=0 .OR. &
+!mx1(m)<n1first .OR. mx1(m)>n1last .OR. &
+!mx2(m)<n2first .OR. mx2(m)>n2last .OR. &
+!mx3(m)<n3first .OR. mx3(m)>n3last  ) THEN
+!print *,'fse = ',m,rocktype(m),mx1(m),mx2(m),mx3(m),Sav(1,1,m),ln_fse(m)
+!read(*,*)
+!end if
    END DO
 
    IF(uppermantlemod == 0) write(*,'(a,i0)'),' Number of aggregates sufficiently deformed (ln_fse > ln_fse_min) = ',ln_fse_num
@@ -209,8 +217,8 @@ IF(spomod > 0) THEN
 
    END IF
 
-   !!! SPO from constant tensors defined in inputspo.dat
-   IF(spomod == 1 .AND. ptmod == 0) CALL stilwe(1,Cstilwe) 
+   !!! SPO from constant tensors defined in spo_input.dat
+   IF(spomod == 1 .AND. ptmod == 0) CALL stilwe(1,mtk(1),mpgpa(1),Cstilwe) 
    IF(spomod == 2) CALL DEM(1,Vmax,Cdem) 
 
    !$omp parallel & 
@@ -222,7 +230,7 @@ IF(spomod > 0) THEN
       
       i = idx(m)  
 
-      !Assign constant tensors defined in inputspo.dat
+      !Assign constant tensors defined in spo_input.dat
       !STILWE (Backus, 1962, JGR)
       IF(spomod == 1) THEN
 
@@ -234,7 +242,7 @@ IF(spomod > 0) THEN
          !STILWE (Backus, 1962, JGR)
          ELSEIF(ptmod > 0 .AND. (spograinmod > 0 .OR. sporockmod > 0)) THEN
    
-            CALL stilwe(i,Sav(:,:,i)) 
+            CALL stilwe(i,mtk(i),mpgpa(i),Sav(:,:,i)) 
  
          END IF
 
@@ -318,7 +326,7 @@ IF(spomod > 0) THEN
             CALL rotvoigt(Sav(:,:,i),TRANSPOSE(acs1),Sav(:,:,i)) !Reverse rotation with transpose rot. matrix
          END IF
 
-         !Assign constant tensors defined in inputspo.dat
+         !Assign constant tensors defined in spo_input.dat
          IF(spomod == 2) THEN
 
          !Find DEM elastic tensor according to porosity of the geodynamic model
@@ -459,12 +467,20 @@ END IF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 IF(TIaxismod .NE. 0) THEN
    
-   ALLOCATE(phi_a(ln_fse_num,3),perc_a(ln_fse_num),phi_a0(3,ln_fse_num))
+   ALLOCATE(phi_a(ln_fse_num,3),phi_a0(3,ln_fse_num))
+   ALLOCATE(perc_a(ln_fse_num))    ; perc_a     = 0d0 ! norm of hexa / norm tensor (%)
+   ALLOCATE(perc_anis(ln_fse_num)) ; perc_anis  = 0d0 ! norm of anis / norm tensor (%)
+   ALLOCATE(perc_hexa(ln_fse_num)) ; perc_hexa  = 0d0 ! norm of hexa / norm of anis(%)
+   ALLOCATE(perc_tetra(ln_fse_num)); perc_tetra = 0d0 ! norm of tetra/ norm of anis(%)
+   ALLOCATE(perc_ortho(ln_fse_num)); perc_ortho = 0d0 ! norm of ortho/ norm of anis(%)
+   ALLOCATE(perc_mono(ln_fse_num)) ; perc_mono  = 0d0 ! norm of mono / norm of anis(%)
+   ALLOCATE(perc_tri(ln_fse_num))  ; perc_tri   = 0d0 ! norm of tri  / norm of anis(%)
    
-   phi_a = 0d0 ; perc_a = 0d0 ; phi_a0 = 0d0
+   phi_a = 0d0 ; phi_a0 = 0d0
 
    !$omp parallel & 
    !$omp shared(rocktype,ln_fse,Sav,phi_a,perc_a,phi_a0,idx) &
+   !$omp shared(perc_anis,perc_hexa,perc_tetra,perc_ortho,perc_mono,perc_tri) &
    !$omp private(m,i) &    
    !$omp firstprivate(ln_fse_num)
    !$omp do schedule(guided,8)
@@ -474,7 +490,7 @@ IF(TIaxismod .NE. 0) THEN
       !!! Percentage of anisotropy and orientation of axis of hexagonal symmetry
       !No hexagonal anisotropy for lower transition zones
       IF(rocktype(i) .NE. 3 ) THEN
-         CALL DECSYM(Sav(:,:,i),rocktype(i),perc_a(m),phi_a(m,:),i)
+         CALL DECSYM(Sav(:,:,i),rocktype(i),perc_a(m),phi_a(m,:),i,perc_anis(m),perc_hexa(m),perc_tetra(m),perc_ortho(m),perc_mono(m),perc_tri(m))
          !anis_x
          phi_a0(1,m) = perc_a(m)*phi_a(m,1)
          !anis_y
@@ -620,6 +636,12 @@ END IF
       print * 
       CALL loadsave_double(0,2,file_id,dum_int(1:2),H5T_NATIVE_DOUBLE,phi_a0,'TIaxis',1)
       DEALLOCATE(phi_a,perc_a,phi_a0)
+      CALL loadsave_double(0,1,file_id,ln_fse_num,H5T_NATIVE_DOUBLE,perc_anis,'perc_anis',1); DEALLOCATE(perc_anis)
+      CALL loadsave_double(0,1,file_id,ln_fse_num,H5T_NATIVE_DOUBLE,perc_hexa,'perc_hexa',1); DEALLOCATE(perc_hexa)
+      CALL loadsave_double(0,1,file_id,ln_fse_num,H5T_NATIVE_DOUBLE,perc_tetra,'perc_tetra',1); DEALLOCATE(perc_tetra)
+      CALL loadsave_double(0,1,file_id,ln_fse_num,H5T_NATIVE_DOUBLE,perc_ortho,'perc_ortho',1); DEALLOCATE(perc_ortho)
+      CALL loadsave_double(0,1,file_id,ln_fse_num,H5T_NATIVE_DOUBLE,perc_mono,'perc_mono',1); DEALLOCATE(perc_mono)
+      CALL loadsave_double(0,1,file_id,ln_fse_num,H5T_NATIVE_DOUBLE,perc_tri,'perc_tri',1); DEALLOCATE(perc_tri)
    END IF
    IF(vpmaxmod .NE. 0)  THEN
       print *,'Save Vp max direction'
@@ -653,7 +675,7 @@ END IF
    WRITE(19,'(a)') ' '
    WRITE(19,'(a)') '   <Grid Name="materialSwarm" >'
    WRITE(19,'(a)') ' '
-   WRITE(19,'(a,1f10.8,a)') '      <Time Value="',timesum,'" />'
+   WRITE(19,'(a,1PE12.4,a)') '      <Time Value="',timesum,'" />'
    WRITE(19,*) ' '
    WRITE(19,'(a,i0,a)') '          <Topology Type="POLYVERTEX" NodesPerElement="',ln_fse_num,'"> </Topology>'
    WRITE(19,'(a)') '          <Geometry Type="XYZ">'
@@ -682,6 +704,24 @@ END IF
    IF(TIaxismod .NE. 0) THEN
       WRITE(19,'(a)') '          <Attribute Type="Vector" Center="Node" Name="TIaxis">' 
       WRITE(19,'(a,i0,a,a,a)') '             <DataItem Format="HDF" NumberType="Float" Precision="8" Dimensions="',ln_fse_num,' 3">lagrangian',dt_str4,'.h5:/TIaxis</DataItem>'
+      WRITE(19,'(a)') '          </Attribute>' 
+      WRITE(19,'(a)') '          <Attribute Type="Scalar" Center="Node" Name="perc_anis">' 
+      WRITE(19,'(a,i0,a,a,a)') '             <DataItem Format="HDF" NumberType="Float" Precision="8" Dimensions="',ln_fse_num,' 1">lagrangian',dt_str4,'.h5:/perc_anis</DataItem>'
+      WRITE(19,'(a)') '          </Attribute>' 
+      WRITE(19,'(a)') '          <Attribute Type="Scalar" Center="Node" Name="perc_hexa">' 
+      WRITE(19,'(a,i0,a,a,a)') '             <DataItem Format="HDF" NumberType="Float" Precision="8" Dimensions="',ln_fse_num,' 1">lagrangian',dt_str4,'.h5:/perc_hexa</DataItem>'
+      WRITE(19,'(a)') '          </Attribute>' 
+      WRITE(19,'(a)') '          <Attribute Type="Scalar" Center="Node" Name="perc_ortho">' 
+      WRITE(19,'(a,i0,a,a,a)') '             <DataItem Format="HDF" NumberType="Float" Precision="8" Dimensions="',ln_fse_num,' 1">lagrangian',dt_str4,'.h5:/perc_ortho</DataItem>'
+      WRITE(19,'(a)') '          </Attribute>' 
+      WRITE(19,'(a)') '          <Attribute Type="Scalar" Center="Node" Name="perc_tetra">' 
+      WRITE(19,'(a,i0,a,a,a)') '             <DataItem Format="HDF" NumberType="Float" Precision="8" Dimensions="',ln_fse_num,' 1">lagrangian',dt_str4,'.h5:/perc_tetra</DataItem>'
+      WRITE(19,'(a)') '          </Attribute>' 
+      WRITE(19,'(a)') '          <Attribute Type="Scalar" Center="Node" Name="perc_mono">' 
+      WRITE(19,'(a,i0,a,a,a)') '             <DataItem Format="HDF" NumberType="Float" Precision="8" Dimensions="',ln_fse_num,' 1">lagrangian',dt_str4,'.h5:/perc_mono</DataItem>'
+      WRITE(19,'(a)') '          </Attribute>' 
+      WRITE(19,'(a)') '          <Attribute Type="Scalar" Center="Node" Name="perc_tri">' 
+      WRITE(19,'(a,i0,a,a,a)') '             <DataItem Format="HDF" NumberType="Float" Precision="8" Dimensions="',ln_fse_num,' 1">lagrangian',dt_str4,'.h5:/perc_tri</DataItem>'
       WRITE(19,'(a)') '          </Attribute>' 
    END IF
    
@@ -915,10 +955,17 @@ END IF
    CALL H5Fopen_f(filename, H5F_ACC_RDONLY_F, file_id, error)
 
    !Load input parameters
-   CALL loadsave_integer(0,1,file_id,3,H5T_NATIVE_INTEGER,dum_int,'Gridnum',0)
-   xnum=dum_int(1)
-   ynum=dum_int(2)
-   znum=dum_int(3)
+   IF(dimensions == 2) THEN
+      CALL loadsave_integer(0,1,file_id,2,H5T_NATIVE_INTEGER,dum_int(1:2),'Gridnum',0)
+      xnum=dum_int(1)
+      ynum=dum_int(2)
+      znum=1
+   ELSE
+      CALL loadsave_integer(0,1,file_id,3,H5T_NATIVE_INTEGER,dum_int,'Gridnum',0)
+      xnum=dum_int(1)
+      ynum=dum_int(2)
+      znum=dum_int(3)
+   END IF
    ALLOCATE(Melt(xnum,ynum,znum),dum_melt(xnum*ynum*znum),meltmark(marknum))
    CALL loadsave_double(0,1,file_id,xnum*ynum*znum,H5T_NATIVE_DOUBLE,dum_melt,'Field',0)
 
@@ -1090,578 +1137,3 @@ END IF
    vp_anis = (vpmax - vpmin)/(vpmax + vpmin)*200
 
    END SUBROUTINE MAX_VP_DVS
-    
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!
-!  subroutine for elastic decomposition
-!  into transverse isotropy
-!
-!  DECMOD   :   module of global parameters
-!  DECSYM   :   decomposition into transverse
-!               isotropy symmetry
-!
-!  Library of independent subroutines
-!  for elasticity and tensor
-!
-!  FULLSYM6 :   upper right 6x6 matrix into
-!               full symmetric 6x6 matrix
-!  NDELTA   :   Kronecker function
-!  TENS4    :   transform 6x6 matrix
-!               into 4th order tensor
-!  JACOBI   :   get eigenvectors and eigenvalues
-!               of a real symmetric matrix
-!  EIGSRT   :   order eigenvectors with
-!               increasing eigenvalues
-!  MAT6     :   transform 4th order tensor
-!               into 6x6 matrix
-!  PERMUT   :   permutation of index 123
-!  ROT4     :   rotation of 4th order tensor 
-!
-!  Library of subroutines
-!  for symmetry decomposition
-!  (elastic coefficients in GPa)
-!
-!  SCCA       : form symmetry cartesian system
-!  V21D       : form 21D vector from 6x6 matrix (independent)
-!  PROJECTI   : transverse isotropy projector   (independent)
-!
-!****************************************************************
-!
-
-      module DECMOD
-
-      !double precision, dimension(3,3) :: SCC
-      !double precision, dimension(6,6) :: CE1
-      !double precision, dimension(3,3,3,3) :: EL1
-      !double precision, dimension(21) :: XEC
-      !double precision :: XN,ANIS
-
-      end module DECMOD
-
-!
-!****************************************************************
-!
-
-      subroutine DECSYM(Sav1,rt,PERC,TIAXIS,m)
-
-      use DECMOD
-
-      implicit none
-
-      double precision, dimension(6,6) :: Sav1
-      double precision :: PERC,DC5,PI
-      double precision, dimension(3) :: TIAXIS
-      double precision, dimension(3,3) :: SCC
-      double precision, dimension(6,6) :: CE1
-      double precision, dimension(3,3,3,3) :: EL1
-      double precision, dimension(21) :: XEC
-      double precision :: XN,ANIS
-      INTEGER :: m,rt
-
-      PI=acos(-1D0)
-      CE1=Sav1
-      EL1=0D0
-      call FULLSYM6(CE1)
-      call TENS4(CE1,EL1)
-      call V21D(CE1,XEC)
-      XN=sqrt(dot_product(XEC,XEC))
-
-      call SCCA(SCC,CE1,EL1,XEC,XN,ANIS)
-      
-      call PROJECTI(XEC,DC5)
-
-      PERC=(ANIS-DC5)/XN*100D0
-
-      TIAXIS=SCC(3,:)
-      TIAXIS=TIAXIS/sqrt(sum(TIAXIS*TIAXIS))
-      !Choosing Z unit vector
-      !INCLTI=asin(TIAXIS(3))
-      
-      !Reset negative hexagonal anisotropy
-      IF(PERC < 0d0) then
-         PERC = 0d0
-         TIAXIS = 0d0
-      END IF
-
-      !print *,m,rt,PERC,TIAXIS(1),TIAXIS(2),TIAXIS(3)
-      return
-
-      end  subroutine DECSYM
-
-!
-!****************************************************************
-!
-
-      subroutine FULLSYM6(C)
-
-      implicit none
-
-      double precision, dimension(6,6) :: C
-
-      C(3,2)=C(2,3)
-      C(3,1)=C(1,3)
-      C(2,1)=C(1,2)
-
-      C(4,1)=C(1,4)
-      C(5,1)=C(1,5)
-      C(6,1)=C(1,6)
-      C(4,2)=C(2,4)
-      C(5,2)=C(2,5)
-      C(6,2)=C(2,6)
-      C(4,3)=C(3,4)
-      C(5,3)=C(3,5)
-      C(6,3)=C(3,6)
-
-      C(6,5)=C(5,6)
-      C(6,4)=C(4,6)
-      C(5,4)=C(4,5)
-
-      return
-
-      end subroutine FULLSYM6
-
-!
-!****************************************************************
-!
-
-      subroutine TENS4(C,C4)
-
-      implicit none
-
-      integer :: i,j,k,l
-      integer :: p,q
-      integer :: NDELTA
-      double precision, dimension(6,6) :: C
-      double precision, dimension(3,3,3,3) :: C4
-
-      C4=0D0
-
-      do i=1,3
-      do j=1,3
-      do k=1,3
-      do l=1,3
-
-         p=NDELTA(i,j)*i+(1-NDELTA(i,j))*(9-i-j)
-         q=NDELTA(k,l)*k+(1-NDELTA(k,l))*(9-k-l)
-         C4(i,j,k,l)=C(p,q)
-
-      end do
-      end do
-      end do
-      end do
-
-      end subroutine TENS4
-
-!
-!****************************************************************
-!
-
-      function NDELTA(i,j)
-
-      implicit none
-
-      integer :: i,j
-      integer :: NDELTA
-
-      NDELTA=0
-      if (i==j) NDELTA=1
-
-      end function NDELTA
-
-!
-!****************************************************************
-!
-
-      subroutine EIGSRT(d,v,n,np)
-
-      ! Order eigenvalues and eigenvectors
-      ! 1 : max
-      ! 2 : mid
-      ! 3 : min
-
-      implicit none
-
-      integer :: np,n
-      integer :: i,j,k
-      double precision, dimension(np) :: d
-      double precision, dimension(np,np) :: v
-      double precision :: p
-
-      do i=1,n-1
-         k=i
-         p=d(i)
-         do j=i+1,n
-            if (d(j)>=p) then
-               k=j
-               p=d(j)
-            end if
-         end do
-         if (k/=i) then
-            d(k)=d(i)
-            d(i)=p
-            do j=1,n
-               p=v(j,i)
-               v(j,i)=v(j,k)
-               v(j,k)=p
-            end do
-         end if
-      end do
-
-      return
-
-      end subroutine EIGSRT
-
-!
-!****************************************************************
-!
-
-      subroutine MAT6(C4,C)
-
-      implicit none
-
-      integer :: i
-      double precision, dimension(6,6) :: C
-      double precision, dimension(3,3,3,3) :: C4
-
-      C = 0D0
-
-      do i=1,3
-         C(i,i)=C4(i,i,i,i)
-      end do
-      do i=2,3
-         C(1,i)=(C4(1,1,i,i)+C4(i,i,1,1))/2D0
-         C(i,1)=C(1,i)
-      end do
-      C(2,3)=(C4(2,2,3,3)+C4(3,3,2,2))/2D0
-      C(3,2)=C(2,3)
-
-      do i=1,3
-         C(i,4)=(C4(i,i,2,3)+C4(i,i,3,2)+                       &
-                 C4(2,3,i,i)+C4(3,2,i,i))/4D0
-         C(4,i)=C(i,4)
-      end do
-      do i=1,3
-         C(i,5)=(C4(i,i,1,3)+C4(i,i,3,1)+                       &
-                 C4(1,3,i,i)+C4(3,1,i,i))/4D0
-         C(5,i)=C(i,5)
-      end do
-      do i=1,3
-         C(i,6)=(C4(i,i,1,2)+C4(i,i,2,1)+                       &
-                 C4(1,2,i,i)+C4(2,1,i,i))/4D0
-         C(6,i)=C(i,6)
-      end do
-
-      C(4,4)=(C4(2,3,2,3)+C4(2,3,3,2)+                          &
-              C4(3,2,2,3)+C4(3,2,3,2))/4D0
-      C(5,5)=(C4(1,3,1,3)+C4(1,3,3,1)+                          &
-              C4(3,1,1,3)+C4(3,1,3,1))/4D0
-      C(6,6)=(C4(2,1,2,1)+C4(2,1,1,2)+                          &
-              C4(1,2,2,1)+C4(1,2,1,2))/4D0
-      C(4,5)=(C4(2,3,1,3)+C4(2,3,3,1)+                          &
-              C4(3,2,1,3)+C4(3,2,3,1)+                          &
-              C4(1,3,2,3)+C4(1,3,3,2)+                          &
-              C4(3,1,2,3)+C4(3,1,3,2))/8D0
-
-      C(5,4)=C(4,5)
-      C(4,6)=(C4(2,3,1,2)+C4(2,3,2,1)+                          &
-              C4(3,2,1,2)+C4(3,2,2,1)+                          &
-              C4(1,2,2,3)+C4(1,2,3,2)+                          &
-              C4(2,1,2,3)+C4(2,1,3,2))/8D0
-      C(6,4)=C(4,6)
-      C(5,6)=(C4(1,3,1,2)+C4(1,3,2,1)+                          &
-              C4(3,1,1,2)+C4(3,1,2,1)+                          &
-              C4(1,2,1,3)+C4(1,2,3,1)+                          &
-              C4(2,1,1,3)+C4(2,1,3,1))/8D0
-      C(6,5)=C(5,6)
-
-      return
-
-      end subroutine MAT6
-
-!
-!****************************************************************
-!
-
-      subroutine PERMUT(INDEX,PERM)
-
-      implicit none
-
-      integer :: INDEX
-      integer, dimension(3) :: PERM
-
-      if (INDEX==1) then
-         PERM(1)=1
-         PERM(2)=2
-         PERM(3)=3
-      end if
-      if (INDEX==2) then
-         PERM(1)=2
-         PERM(2)=3
-         PERM(3)=1
-      end if
-      if (INDEX==3) then 
-         PERM(1)=3
-         PERM(2)=1
-         PERM(3)=2
-      endif
-
-      return
-
-      end subroutine PERMUT
-
-!
-!****************************************************************
-!
-
-      subroutine ROT4(C4,R,C4C)
-
-      implicit none
-
-      integer :: i1,i2,i3,i4,j1,j2,j3,j4
-      double precision, dimension(3,3,3,3) :: C4,C4C
-      double precision, dimension(3,3) :: R
-
-      C4C = 0D0
-
-      do i1=1,3
-      do i2=1,3
-      do i3=1,3
-      do i4=1,3
-
-         do j1=1,3
-         do j2=1,3
-         do j3=1,3
-         do j4=1,3
-
-            C4C(i1,i2,i3,i4) = C4C(i1,i2,i3,i4) +               &
-            R(i1,j1)*R(i2,j2)*R(i3,j3)*R(i4,j4)*C4(j1,j2,j3,j4)
-
-         end do
-         end do
-         end do
-         end do
-
-      end do
-      end do
-      end do
-      end do
-
-      return
-
-      end subroutine ROT4
-
-!
-!****************************************************************
-!
-
-      subroutine SCCA(SCC,CE1,EL1,XEC,XN,ANIS)
-
-      use DECMOD
-
-      implicit none
-
-      integer :: i,NROT,i1,i2,NDVC
-      integer, dimension(3) :: IHS
-      double precision, dimension(3) :: EGDI,EGVO
-      double precision, dimension(3,3) :: DI,VO,VECDI,VECVO
-      double precision, dimension(6,6) :: CEC
-      double precision, dimension(3,3,3,3) :: ELC
-      double precision, dimension(21) :: XH,XD
-      double precision :: SDV,ADV,ADVC,SCN,DEV,K,G
-      double precision, dimension(3,3) :: SCC
-      double precision, dimension(6,6) :: CE1
-      double precision, dimension(3,3,3,3) :: EL1
-      double precision, dimension(21) :: XEC
-      double precision :: XN,ANIS
-
-      DI=0D0
-      VO=0D0
-      K=0D0
-      G=0D0
-
-      do i=1,3
-         DI(1,1)=CE1(1,i)+DI(1,1)
-         DI(2,2)=CE1(2,i)+DI(2,2)
-         DI(3,3)=CE1(3,i)+DI(3,3)
-         DI(2,1)=CE1(6,i)+DI(2,1)
-         DI(3,1)=CE1(5,i)+DI(3,1)
-         DI(3,2)=CE1(4,i)+DI(3,2)
-      end do
-      DI(1,2)=DI(2,1)
-      DI(1,3)=DI(3,1)
-      DI(2,3)=DI(3,2)
-
-      VO(1,1)=CE1(1,1)+CE1(6,6)+CE1(5,5)
-      VO(2,2)=CE1(6,6)+CE1(2,2)+CE1(4,4)
-      VO(3,3)=CE1(5,5)+CE1(4,4)+CE1(3,3)
-      VO(2,1)=CE1(1,6)+CE1(2,6)+CE1(4,5)
-      VO(1,2)=VO(2,1)
-      VO(3,1)=CE1(1,5)+CE1(3,5)+CE1(4,6)
-      VO(1,3)=VO(3,1)
-      VO(3,2)=CE1(2,4)+CE1(3,4)+CE1(5,6)
-      VO(2,3)=VO(3,2)
-
-      do i=1,3
-         K=K+DI(i,i)
-         G=G+VO(i,i)
-      end do
-      K=K/9D0
-      G=G/10D0-3D0*K/10D0
-
-      ! Anisotropy
-
-      ANIS=0D0
-      XH=0D0
-      XD=0D0
-      XH(1) = K + 4D0*G/3D0
-      XH(2) = K + 4D0*G/3D0
-      XH(3) = K + 4D0*G/3D0
-      XH(4) = sqrt(2D0)*(K-2D0*G/3D0)
-      XH(5) = sqrt(2D0)*(K-2D0*G/3D0)
-      XH(6) = sqrt(2D0)*(K-2D0*G/3D0)
-      XH(7) = 2D0*G
-      XH(8) = 2D0*G
-      XH(9) = 2D0*G
-
-      XD=XEC-XH
-      ANIS=sqrt(dot_product(XD,XD))
-
-      ! Dil. and Voigt axes
-
-      CALL DSYEVQ3(DI,VECDI,EGDI)
-      call EIGSRT(EGDI,VECDI,3,3)
-      CALL DSYEVQ3(VO,VECVO,EGVO)
-      call EIGSRT(EGVO,VECVO,3,3)
-
-      ! Search for SCCA directions
-
-      do i1=1,3
-         NDVC=0
-         ADVC=10D0
-         SCN=0D0
-         do i2=1,3
-            SDV=dot_product(VECDI(:,i1),VECVO(:,i2))
-            if (abs(SDV)>=1D0) SDV=sign(1D0,SDV)
-            ADV=acos(SDV)
-            if (SDV<0D0) ADV=acos(-1D0)-ADV
-            if (ADV<ADVC) then
-               NDVC=sign(1D0,SDV)*i2
-               ADVC=ADV
-            endif
-         end do
-
-         VECDI(:,i1)=(VECDI(:,i1)+NDVC*VECVO(:,abs(NDVC)))/2D0
-         SCN=sqrt(VECDI(1,i1)**2D0+VECDI(2,i1)**2D0+            &
-                  VECDI(3,i1)**2D0)
-         VECDI(:,i1)=VECDI(:,i1)/SCN
-      end do
-
-      ! Higher symmetry axis
-
-      SCC = transpose(VECDI)
-      ELC = 0D0
-      SDV = XN
-      do i=1,3
-         call PERMUT(i,IHS)
-         do i1=1,3
-            VECDI(i1,:)=SCC(IHS(i1),:)
-         end do
-         call ROT4(EL1,VECDI,ELC)
-         call MAT6(ELC,CEC)
-         call V21D(CEC,XEC)
-         call PROJECTI(XEC,DEV)
-         if (DEV<SDV) then
-             SDV=DEV
-             NDVC=i
-         endif
-      end do
-
-      VECDI=SCC
-      call PERMUT(NDVC,IHS)
-      do i1=1,3
-         SCC(i1,:)=VECDI(IHS(i1),:)
-      end do
-
-      ! Rotate in SCCA
-
-      call ROT4(EL1,SCC,ELC)
-      call MAT6(ELC,CEC)
-      call V21D(CEC,XEC)
-
-      return
-
-      end subroutine SCCA
-
-!
-!****************************************************************
-!
-
-      subroutine V21D(C,X)
-
-      implicit none
-
-      double precision, dimension(6,6) :: C
-      double precision, dimension(21) :: X
-
-      X  = 0D0
-      X(1)  = C(1,1)
-      X(2)  = C(2,2)
-      X(3)  = C(3,3)
-      X(4)  = sqrt(2D0)*C(2,3)
-      X(5)  = sqrt(2D0)*C(1,3)
-      X(6)  = sqrt(2D0)*C(1,2)
-      X(7)  = 2D0*C(4,4)
-      X(8)  = 2D0*C(5,5)
-      X(9)  = 2D0*C(6,6)
-      X(10) = 2D0*C(1,4)
-      X(11) = 2D0*C(2,5)
-      X(12) = 2D0*C(3,6)
-      X(13) = 2D0*C(3,4)
-      X(14) = 2D0*C(1,5)
-      X(15) = 2D0*C(2,6)
-      X(16) = 2D0*C(2,4)
-      X(17) = 2D0*C(3,5)
-      X(18) = 2D0*C(1,6)
-      X(19) = 2D0*sqrt(2D0)*C(5,6)
-      X(20) = 2D0*sqrt(2D0)*C(4,6)
-      X(21) = 2D0*sqrt(2D0)*C(4,5)
-
-      return
-
-      end subroutine V21D
-
-!
-!***************************************************************
-!
-
-      subroutine PROJECTI(X,DEV)
-
-      implicit none
-
-      double precision :: DEV
-      double precision, dimension(21) :: X,XH,XD
-
-      XH=0D0
-      XD=0D0
-      DEV=0D0
-
-      XH(1)=3D0/8D0*(X(1)+X(2))+X(6)/4D0/sqrt(2D0)+X(9)/4D0
-      XH(2)=XH(1)
-      XH(3)=X(3)
-      XH(4)=(X(4)+X(5))/2D0
-      XH(5)=XH(4)
-      XH(6)=(X(1)+X(2))/4D0/sqrt(2D0)+3D0/4D0*X(6)              &
-            -X(9)/2D0/sqrt(2D0)
-      XH(7)=(X(7)+X(8))/2D0
-      XH(8)=XH(7)
-      XH(9)=(X(1)+X(2))/4D0-X(6)/2D0/sqrt(2D0)+X(9)/2D0
-
-      XD=X-XH
-      DEV=sqrt(dot_product(XD,XD))
-
-      return
-
-      end subroutine PROJECTI

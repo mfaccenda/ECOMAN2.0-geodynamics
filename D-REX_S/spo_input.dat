@@ -47,4 +47,4 @@ dsdm
 
 # Cracks orientations relative to sigma 1
  
-  -45d0  # phi_spo: angle between SPO fabric and max FSE or max compression
+  -30d0  # phi_spo: angle between SPO fabric and max FSE or max compression

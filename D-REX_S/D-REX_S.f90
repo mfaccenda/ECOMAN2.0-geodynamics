@@ -2,7 +2,7 @@
  !! ---------------------------------------------------------------------------
  !! ---------------------------------------------------------------------------
  !!
- !!    Copyright (c) 2018-2020, Universita' di Padova, Manuele Faccenda
+ !!    Copyright (c) 2018-2023, Universita' di Padova, Manuele Faccenda
  !!    All rights reserved.
  !!
  !!    This software package was developed at:
@@ -49,16 +49,19 @@
 
    IMPLICIT NONE
 
-   INTEGER :: step1 !! number of points on a streamline
-
-   INTEGER :: i,j,m,n,nx(3),ti(1)
+   INTEGER :: i,j,m,n,nx(3),ti(1),anisnum,nsave
 
    DOUBLE PRECISION, DIMENSION(3) :: evals,c2
    DOUBLE PRECISION, DIMENSION (3,3) ::LSij,evects,fseacs,acs1,acs2,Rotm,ee,Rotm1,lrot
-   DOUBLE PRECISION :: fractdisl,phi1,theta,phi2,a0,w3
+   DOUBLE PRECISION :: fractvoigt0,fractdisl,phi1,theta,phi2,a0,w3
    DOUBLE PRECISION :: pphi1,ttheta,pphi2
-   DOUBLE PRECISION, DIMENSION(6,6) :: Cstilwe
+   DOUBLE PRECISION, DIMENSION(6,6) :: Voigt,Reuss,Mixed,Cstilwe
    DOUBLE PRECISION, DIMENSION(1000,6,6) :: Cdem
+   DOUBLE PRECISION, DIMENSION(:,:), ALLOCATABLE :: phi_a
+   DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: f1_ol,f1_opx
+   ! average orientation of a-axis
+   DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: perc_a,perc_anis,perc_hexa,perc_tetra,perc_ortho,perc_mono,perc_tri
+   ! percentage of S wave anisotropy
 
    CHARACTER (3) :: dt_str3
    CHARACTER (4) :: dt_str4
@@ -71,9 +74,23 @@
 
    CALL init0
 
+   fractvoigt0 = fractvoigt
+
+   anisnum = 1000
+   ALLOCATE(phi_a(anisnum,3))
+   ALLOCATE(perc_a(anisnum))    ; perc_a     = 0d0 ! norm of hexa / norm tensor (%)
+   ALLOCATE(perc_anis(anisnum)) ; perc_anis  = 0d0 ! norm of anis / norm tensor (%)
+   ALLOCATE(perc_hexa(anisnum)) ; perc_hexa  = 0d0 ! norm of hexa / norm of anis(%)
+   ALLOCATE(perc_tetra(anisnum)); perc_tetra = 0d0 ! norm of tetra/ norm of anis(%)
+   ALLOCATE(perc_ortho(anisnum)); perc_ortho = 0d0 ! norm of ortho/ norm of anis(%)
+   ALLOCATE(perc_mono(anisnum)) ; perc_mono  = 0d0 ! norm of mono / norm of anis(%)
+   ALLOCATE(perc_tri(anisnum))  ; perc_tri   = 0d0 ! norm of tri  / norm of anis(%)
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!  LPO  and FSE calculation  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+   !ALLOCATE(f1_ol(nboxnum),f1_opx(nboxnum))
 
 !!! Constant timestep   
    dt = 1d-2/epsnot(1)
@@ -84,6 +101,7 @@
    fractdisl = fractdislrock(rocktype(1))
 
    n = 0
+   nsave = 0
 
    DO WHILE (max_strain <= strain_max)
 
@@ -105,16 +123,20 @@
 
       write(*,"(a,f8.2)"),' Finite strain:',max_strain
 
+      nsave = nsave + 1
+
+      !Run SBFTEX
+      !IF(sbfmod > 0 .AND. rocktype(1) == 1 ) CALL SBFTEX(1,f1_ol,f1_opx)
+
 !!! Cijkl tensor (using Voigt average)
-      CALL stifftenz(1)
+      !CALL stifftenz(1)
+      fractvoigt = fractvoigt0 ; CALL tensorscalc(1,mtk0,mpgpa0,Mixed)
+      fractvoigt = 1d0 ; CALL tensorscalc(1,mtk0,mpgpa0,Voigt)
+      fractvoigt = 0d0 ; CALL tensorscalc(1,mtk0,mpgpa0,Reuss)
 
 !!! Percentage of anisotropy and orientation of axis of hexagonal symmetry
-      !CALL DECSYM(Voigt,perc_a,phi_a)
+      CALL DECSYM(Mixed,rocktype(1),perc_a(nsave),phi_a(nsave,:),1,perc_anis(nsave),perc_hexa(nsave),perc_tetra(nsave),perc_ortho(nsave),perc_mono(nsave),perc_tri(nsave))
 
-      !OUTPUT      
-
-      !CALL output
-      
       n = 0
 
       !!! Write infos in hdf5 format
@@ -139,6 +161,8 @@
 
       CALL H5Fcreate_f(fname, H5F_ACC_TRUNC_F, file_id, error)
 
+      IF(sbfmod == 0) THEN
+
       nx(1)=size
       nx(2)=3
       nx(3)=3
@@ -148,6 +172,19 @@
          CALL loadsave_double(0,3,file_id,nx(1:3),H5T_NATIVE_DOUBLE,acs_ens(:,:,:,1),'acs_ens',1)
          CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,odf_ens(1,:),'odf_ens',1)
       END IF
+
+      ELSE
+
+      nx(1)=nboxnum
+      nx(2)=3
+      nx(3)=3
+      CALL loadsave_double(0,3,file_id,nx(1:3),H5T_NATIVE_DOUBLE,acs0sbf(:,:,:),'acs',1)
+      CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,f1_ol(:),'odf',1)
+      CALL loadsave_double(0,3,file_id,nx(1:3),H5T_NATIVE_DOUBLE,acs0sbf(:,:,:),'acs_ens',1)
+      CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,f1_opx(:),'odf_ens',1)
+
+      END IF
+
       nx(1)=3
       nx(2)=3
       CALL loadsave_double(0,2,file_id,nx(1:2),H5T_NATIVE_DOUBLE,Fij(:,:,1),'Fij',1)
@@ -188,14 +225,35 @@
    write(*,"(a)"),'--------------------------------------------------------'
    print *
 
+   ! Save tensor aniisotrorpic components
+   !!! Write infos in hdf5 format
+
+   !Initialize FORTRAN interface.
+
+   CALL H5open_f (error)
+   
+   CALL H5Fcreate_f('anisdec.h5', H5F_ACC_TRUNC_F, file_id, error)
+
+   nx(1)=nsave
+   CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,perc_anis(1:nsave) ,'perc_anis' ,1)
+   CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,perc_hexa(1:nsave) ,'perc_hexa' ,1)
+   CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,perc_tetra(1:nsave),'perc_tetra',1)
+   CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,perc_ortho(1:nsave),'perc_ortho',1)
+   CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,perc_mono(1:nsave) ,'perc_mono' ,1)
+   CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,perc_tri(1:nsave)  ,'perc_tri'  ,1)
+   CALL loadsave_integer(0,1,file_id,1,H5T_NATIVE_INTEGER,nsave,'nsave',1)
+
+   !Terminate access to the file.
+   CALL H5Fclose_f(file_id, error)
+
+   !Close FORTRAN interface.
+   CALL H5close_f(error)
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!  SPO calculation  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    IF(spomod > 0) THEN
   
-      pi = 3.141592653589793238462643383279
-      deg2rad = pi/180.0
-
       !!! Read input file infos for DEM model and allocate TD database matrices
       CALL initspo
 
@@ -226,7 +284,7 @@
          CALL rotmatrixZXZ(phi1,theta,phi2,acs2)
 
          !STILWE (Backus, 1962, JGR)
-         CALL stilwe(1,Sav(:,:,i)) 
+         CALL stilwe(1,mtk0,mpgpa0,Sav(:,:,i)) 
          
          IF(ptmod == 0) rho(1) = ro_back*(1.0-Vmax) + ro_incl*Vmax
 
@@ -327,7 +385,7 @@
       CALL loadsave_double(0,2,file_id,nx(1:2),H5T_NATIVE_DOUBLE,Mixed,'Mixed',1)
       !Density
       CALL loadsave_double(0,1,file_id,1,H5T_NATIVE_DOUBLE,rho,'Density',1)
-      !Rocktype
+      !spomod  
       CALL loadsave_integer(0,1,file_id,1,H5T_NATIVE_INTEGER,spomod,'spomod',1)
 
       !Terminate access to the file.
@@ -350,6 +408,8 @@
    CALL system(str)
    str='mv '//trim(output_name)//'*.h5 '//trim(output_name)
    CALL system(str)
+   str='mv anisdec.h5 '//trim(output_name)
+   CALL system(str)
 
    !!! Write infos in hdf5 format
 
@@ -359,16 +419,36 @@
 
    CALL H5Fcreate_f('fossilfabric.h5', H5F_ACC_TRUNC_F, file_id, error)
 
-   nx(1)=size
-   nx(2)=3
-   nx(3)=3
-   CALL loadsave_double(0,3,file_id,nx(1:3),H5T_NATIVE_DOUBLE,acs(:,:,:,1),'acs',1)
-   CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,odf(1,:),'odf',1)
-   CALL loadsave_double(0,3,file_id,nx(1:3),H5T_NATIVE_DOUBLE,acs_ens(:,:,:,1),'acs_ens',1)
-   CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,odf_ens(1,:),'odf_ens',1)
+   IF(sbfmod == 0) THEN
+
+      nx(1)=size
+      nx(2)=3
+      nx(3)=3
+      CALL loadsave_double(0,3,file_id,nx(1:3),H5T_NATIVE_DOUBLE,acs(:,:,:,1),'acs',1)
+      CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,odf(1,:),'odf',1)
+      CALL loadsave_double(0,3,file_id,nx(1:3),H5T_NATIVE_DOUBLE,acs_ens(:,:,:,1),'acs_ens',1)
+      CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,odf_ens(1,:),'odf_ens',1)
+   
+   ELSE
+   
+      nx(1)=nboxnum
+      nx(2)=3
+      nx(3)=3
+      CALL loadsave_double(0,3,file_id,nx(1:3),H5T_NATIVE_DOUBLE,acs0sbf(:,:,:),'acs',1)
+      CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,f1_ol(:),'odf',1)
+      CALL loadsave_double(0,3,file_id,nx(1:3),H5T_NATIVE_DOUBLE,acs0sbf(:,:,:),'acs_ens',1)
+      CALL loadsave_double(0,1,file_id,nx(1:1),H5T_NATIVE_DOUBLE,f1_opx(:),'odf_ens',1)
+
+   END IF
+
    nx(1)=3
    nx(2)=3
    CALL loadsave_double(0,2,file_id,nx(1:2),H5T_NATIVE_DOUBLE,Fij(:,:,1),'Fij',1)
+
+   !spomod and sbfmod  
+   CALL loadsave_integer(0,1,file_id,1,H5T_NATIVE_INTEGER,spomod,'spomod',1)
+   CALL loadsave_integer(0,1,file_id,1,H5T_NATIVE_INTEGER,sbfmod,'sbfmod',1)
+   CALL loadsave_integer(0,1,file_id,1,H5T_NATIVE_INTEGER,size,'size',1)
 
    !Terminate access to the file.
    CALL H5Fclose_f(file_id, error)
@@ -392,8 +472,11 @@
    IMPLICIT NONE
 
    INTEGER :: gi,j,i1,i3,i,j1,j2,j3,nrot ! loop counters
+   INTEGER :: iph,ith,ips,nbox
 
    DOUBLE PRECISION, DIMENSION(:), ALLOCATABLE :: ran0
+   DOUBLE PRECISION :: dph,dcosth,dps,ph,costh,ps,th
+   DOUBLE PRECISION :: p21,p31,p41
    ! matrix of random numbers used to generate initial random LPO
 
    DOUBLE PRECISION :: phi1,theta,phi2
@@ -413,7 +496,13 @@
    INTEGER(HID_T)  :: file_id, group_id, dataspace_id, dataset_id, attr_id, dcpl,memtype ! Handles
    INTEGER     ::   error  ! Error flag
 
+   ! to fix random distribution
+   INTEGER, ALLOCATABLE :: seed(:)
+
    l = 0d0 ; e = 0d0
+
+   pi = 3.141592653589793238462643383279
+   deg2rad = pi/180.0
 
 !!! Name of input files from file input_fabric0.dat
 
@@ -482,8 +571,10 @@
    DO j1=1,6 ; DO j2=1,6
       IF(j1 .GT. 3 .AND. j2 .GT. 3) THEN
          mandel_scale(j1,j2) = 2
+         !mandel_scale(j1,j2) = 4
       ELSE IF(j1 .GT. 3 .OR. j2 .GT. 3) THEN
          mandel_scale(j1,j2) = 2**0.5d0
+         !mandel_scale(j1,j2) = 2
       END IF
    END DO ; END DO
 
@@ -493,8 +584,6 @@
 
 !!! allocation of the dimensions of the arrays
 
-   ALLOCATE(xe1(size),xe2(size),xe3(size))
-
    ALLOCATE(odf(1,size))
    ALLOCATE(odf_ens(1,size))
 
@@ -503,10 +592,22 @@
    ALLOCATE(acs(size,3,3,1),acs0(size,3,3))
    ALLOCATE(acs_ens(size,3,3,1))
 
+   
+   IF(sbfmod == 0) THEN
+
 !!! initialization of orientations - uniformally random distribution
 !!! Rmq cos(theta) used to sample the metric Eulerian space
 
+   ALLOCATE(xe1(size),xe2(size),xe3(size))
+
+   CALL RANDOM_SEED(size=i)
+   ALLOCATE(seed(i))
+   DO j1 = 1,i
+      seed(j1) = 0
+   END DO
+   CALL RANDOM_SEED(put=seed)
    CALL RANDOM_NUMBER(ran0)
+   DEALLOCATE(seed)
 
    i = 1
 
@@ -550,6 +651,72 @@
    END DO
 
    DEALLOCATE(xe1,xe2,xe3,ran0)
+
+   ELSE
+
+   nbox3 = 20
+   nbox = nbox3
+   nboxnum = nbox3**3
+   rocktype(1) = 1
+   ALLOCATE(acs0sbf(nboxnum,3,3))
+
+   dph = pi/REAL(nbox)
+   dcosth = 2.0/REAL(nbox)
+   dps = pi/REAL(nbox)
+
+   DO iph = 1, nbox
+      ph = (iph - 0.5)*dph
+   DO ith = 1, nbox
+      costh = -1.0 + (ith - 0.5)*dcosth
+      th = dacos(costh)
+   DO ips = 1, nbox
+      ps = (ips - 0.5)*dps
+
+      i = ips + (ith-1)*nbox + (iph-1)*nbox*nbox
+
+!!! Direction cosine matrix
+!!! acs(k,j) = cosine of the angle between the kth crystallographic axes and the
+!jth external axes 
+
+      !CALL EULER_TO_DIRCOS(ph,th,ps,acs0sbf(i,:,:))  ! direction cosines g_(ij) of crystal axes
+
+!      if(i==1) then
+!        print *,i,iph,ith,ips,ph,th,ps
+!        write(*,'(3f12.4)'), acs0(i,1,:)
+!        write(*,'(3f12.4)'), acs0(i,2,:)
+!        write(*,'(3f12.4)'), acs0(i,3,:)
+!stop
+!      end if
+   ENDDO; ENDDO; ENDDO
+
+   !Compute calc_sj for Olivine
+   p21 = dlog(tau(1,2)/tau(1,1))
+   p31 = dlog(tau(1,3)/tau(1,1))
+   p41 = dlog(tau(1,5)/tau(1,1))
+
+   ! Calculate spin amplitudes for the four slip systems
+   !CALL SPIN_AMPLITUDES(p21,p31,p41,stressexp(1),biga_ol)
+
+!  write(6,*) 'A_1-A_4 = ', (biga(j), j = 1,4)
+
+! Calculate partial expansion coefficients \mathcal C_{sj} for three slip
+! systems of olivine
+   !CALL CALCSJ(biga_ol,calc_ol)
+
+   p21 = 1d0
+   p31 = 1d0
+   p41 = dlog(1d0/40d0)
+
+! Calculate spin amplitudes for the four slip systems
+   !CALL SPIN_AMPLITUDES(p21,p31,p41,stressexp(1),biga_opx)
+
+!  write(6,*) 'A_1-A_4 = ', (biga(j), j = 1,4)
+
+! Calculate partial expansion coefficients \mathcal C_{sj} for three slip
+! systems of olivine
+   !CALL CALCSJ(biga_opx,calc_opx)
+
+   END IF
 
 !!! Cartesian coordinates of a spherical object    
 
@@ -674,66 +841,3 @@
 
    END SUBROUTINE tensorrot_aggr
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!! subroutine rotmatrix, build rotation matrix                            !!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE rotmatrixZXZ(phi1,theta,phi2,acs1)
-
-   USE comvar
-
-   IMPLICIT NONE
-
-   DOUBLE PRECISION :: phi1,theta,phi2
-   DOUBLE PRECISION, DIMENSION(3,3) :: acs1
-
-   !Transform Euler angles into direction cosine matrix
-   !Z-X-Z: Euler angles in radians
-   acs1(1,1)=COS(phi2)*COS(phi1)-COS(theta)*SIN(phi1)*SIN(phi2)
-   acs1(2,1)=COS(phi2)*SIN(phi1)+COS(theta)*COS(phi1)*SIN(phi2)
-   acs1(3,1)=SIN(phi2)*SIN(theta)
-
-   acs1(1,2)=-SIN(phi2)*COS(phi1)-COS(theta)*SIN(phi1)*COS(phi2)
-   acs1(2,2)=-SIN(phi2)*SIN(phi1)+COS(theta)*COS(phi1)*COS(phi2)
-   acs1(3,2)=COS(phi2)*SIN(theta)
-
-   acs1(1,3)=SIN(theta)*SIN(phi1)
-   acs1(2,3)=-SIN(theta)*COS(phi1)
-   acs1(3,3)=COS(theta)
-
-   RETURN
-
-   END SUBROUTINE rotmatrixZXZ
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!! subroutine rotmatrix, build rotation matrix                            !!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-   SUBROUTINE rotmatrixZYZ(phi1,theta,phi2,acs2)
-
-   USE comvar
-
-   IMPLICIT NONE
-
-   DOUBLE PRECISION :: phi1,theta,phi2
-   DOUBLE PRECISION, DIMENSION(3,3) :: acs2
-
-   !Transform Euler angles into direction cosine matrix
-   !Z-Y-Z: Euler angles in radians
-   acs2(1,1)=COS(phi2)*COS(phi1)*COS(theta)-SIN(phi1)*SIN(phi2)
-   acs2(2,1)=COS(phi1)*SIN(phi2)+COS(theta)*COS(phi2)*SIN(phi1)
-   acs2(3,1)=-COS(phi2)*SIN(theta)
-
-   acs2(1,2)=-SIN(phi1)*COS(phi2)-COS(theta)*SIN(phi2)*COS(phi1)
-   acs2(2,2)=COS(phi2)*COS(phi1)-COS(theta)*SIN(phi1)*SIN(phi2)
-   acs2(3,2)=SIN(phi2)*SIN(theta)
-
-   acs2(1,3)=SIN(theta)*COS(phi1)
-   acs2(2,3)=-SIN(theta)*SIN(phi1)
-   acs2(3,3)=COS(theta)
-
-   RETURN
-
-   END SUBROUTINE rotmatrixZYZ
-
- 

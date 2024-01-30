@@ -1,0 +1,12 @@
+#!/bin/bash
+
+h5pfc -O3 -qopenmp -o demelastic     \
+    DEMelastic.f90    		     \
+    ../../shared_funct/readfunct.f90 \
+    ../../shared_funct/inverse.f90
+
+if [ ! -s objects/ ];then \
+        mkdir objects/;\
+fi;
+
+mv *.o objects/

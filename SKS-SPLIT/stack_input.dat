@@ -1,0 +1,18 @@
+1     !! nsx1 : number of seismic stations equally spaced along axis 1 direction 
+1     !! nsx3 : number of seismic stations equally spaced along axis 3 direction 
+
+ 0    !! depthaxis = define whether depth axis is positive downward (0) or upward (1)
+
+  0.0d0 !! i1first : (X,Phi)min (m,deg)
+  0.0d0 !! i1last  : (X,Phi)max (m,deg)
+  0.0d0 !! i2first : (Y,R)min (m) 
+  0.0d0 !! i2last  : (Y,R)max (m)
+  0.0d0 !! i3first : (Z,Theta)min (m,deg)
+  0.0d0 !! i3last  : (Z,Theta)max (m,deg)
+
+ 50.0d3 !! maxdist : maximum horizontal distance for interpolation of markers to the given vertical profile (m)
+
+ 25.0d3 !! minlayer: minimum layer thickness (m)
+
+  1d-3  !! Xscale : scaling factor to convert depths of the geodynamic model into km
+

@@ -1,0 +1,73 @@
+
+# A) INPUT AND OUTPUT DIRECTORIES/FILES
+
+# cijkl_dir: path to directory where to read Cijkl* files !!! remember to put slash at the end
+../cookbooks/3Dspherical_global/out/
+ 
+# output_dir: path to directory where to save output files !!! remember to put slash at the end
+../cookbooks/3Dspherical_global/out/
+ 
+ 999  # Tinit: initial number of the source Cijkl*.h5 files to be processed
+   1  # Tstep: increment number of the source Cijkl*.h5 files to be processed
+ 999  # Tend : final number of the source Cijkl*.h5 files to be processed
+
+# B) VISUALIZE PROPERTIES OF LAGRANGIAN AGGREGATES
+ 
+1  # Lagrangian
+
+0.0  # ln_fse_min:: minimum threshold of ln(fse_max/fse_min) to visualize the following properties
+
+0  # uppermantlemod (when active displays only upper mantle aggregates with ln_fse >= ln_fse_min)
+1  # rocktypemod
+0  # fse3Dmod (when active, allows for plotting the 3D FSE)          
+0  # fseminmod
+1  # fsemaxmod
+0  # TIaxismod
+0  # vpmaxmod
+0  # dvsmaxmod
+
+# C) SPO: EXTRINSIC ELASTIC ANISOTROPY
+
+0  # spomod (when active, the LPO elastic tensors are reset to 0). The Effective Medium is chosen as: 1 = STILWE (Backus, 1962, JGR); 2/3 = DEM (Mainprice, 1997, EPSL). Define SPO model parameters in spo_input.dat
+
+# D) EULERIAN GRIDDING: INTERPOLATE THE AGGREGATES PROPERTIES TO A GRID
+ 
+1  # Eulerian
+
+# Axis 1 (X-cart or Long)
+-137.0d0 # n1first: (X,Phi)min
+ 137.0d0 # n1last : (X,Phi)max
+    151  # nx11: number of nodes  
+
+# Axis 2 (Y-cart or Radial)
+1.22222d0  # n2first: (Y,R)min
+2.22222d0  # n2last : (Y,R)max
+     21 # nx21: number of nodes  
+
+# Axis 3 (Z-cart or Colat)
+ 43.0d0  # n3first: (Z,Colat)min
+137.0d0  # n3last : (Z,Colat)max
+     51  # nx31: number of nodes  
+
+      1  # vpvsmod:      Vp, Vs (1) isotropic or (2) along the cosx1,cosx2,cosx3 direction
+      1  # dvpvsmod:     dVp,dVs with respect to (1) horizontally averaged Vp,Vs or (2) vertical reference profile
+      0  # zoeppritzmod: Vp, Vs (1) isotropic or (2) along the cosx1,cosx2,cosx3 direction 
+
+    90d0 # cosx1: angle (in degrees) from axis 1 of incoming seismic wave when directionmod active
+     0d0 # cosx2: angle (in degrees) from axis 2 of incoming seismic wave when directionmod active
+    90d0 # cosx3: angle (in degrees) from axis 3 of incoming seismic wave when directionmod active
+
+       1 # nx1ref: axis 1 node where to take the reference Vp, Vs profile to compute dVp and dVs when dvpvsmod == 2 
+       1 # nx3ref: axis 3 node where to take the reference Vp, Vs profile to compute dVp and dVs when dvpvsmod == 2 
+
+      1  # radialmod = Vsh^2/Vsv^2
+
+      1  # azimod : azimuthal anisotropy
+    0d0  # aziscalex1               
+3.222d0  # aziscalex2                  
+  140d0  # az1scalex3                 
+
+      0 # reflectmod (when active, reflect the aggregates with respect to the indicated axis; e.g., when  = 1, then reflect with respect to X axis; if eulerianmod is active, then need to double the domain)
+      0  # replicateZmod (when active, replicate the 2D tomographic model along the Z (Colat) direction)
+      0  # specfem3Dmod (when active, print elastic tensors to txt file to be used as an input by Specfem3D)
+      1  # psitomomod (when active, print elastic tensors to txt file to be used as an input by PSI)  

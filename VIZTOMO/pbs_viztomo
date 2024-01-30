@@ -18,4 +18,4 @@ export OMP_NUM_THREADS=28
 # ./viztomo ../cookbooks/2Dpolar_subduction/viztomo_input_spo.dat
 # ./viztomo ../cookbooks/3Dcartesian_sinkingslab/viztomo_input.dat
 # ./viztomo ../cookbooks/3Dspherical_sinkingslab/viztomo_input.dat
-# ./viztomo ../cookbooks/3Dspherical_global/viztomo_input.dat
+ ./viztomo ../cookbooks/3Dspherical_global/viztomo_input.dat
