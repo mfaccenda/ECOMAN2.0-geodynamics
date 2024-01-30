@@ -1,16 +1,17 @@
 # ECOMAN - Exploring the COnsequences of Mechanical ANisotropy
 
-ECOMAN is a software package that (i) simulates the development of strain-induced mantle fabrics (LPO+SPO) and (ii) tests the effects of the mechanical (elastic and viscous) anisotropy associated with these fabrics on seismic imaging and mantle convection. 
+ECOMAN is a software package that (i) simulates the development of strain-induced mantle fabrics (LPO+SPO) and (ii) tests the effects of the mechanical (elastic and viscous) anisotropy associated with these fabrics on seismic imaging and mantle convection. It includes programs that:
 
-ECOMAN builds on the original D-REX software [Kaminski et al., 2004], and includes routines from FSTRACK software [Becker et al., 2006] for synthetic SKS splitting calculation, MATLAB scripts from MTEX Toolbox [Mainprice et al., 2011] to plot singleaggregate textures, thermodynamic databases of the density and isotropic elastic moduli for selected rock compositions at relevant  mantle  P-T  conditions  and  generated with MMA_EoS [Chust et al., 2017].
+1) estimate strain/stress-induced rock fabrics (LPO and SPO) and their elastic and viscous anisotropic mechanical properties (ECOMAN-geodynamics: D-REX_S, D-REX_M, EXEV),
+2) post-process the simulated rock fabrics for visualisation of their isotropic/anisotropic mechanical properties and deformational history (ECOMAN-geodynamics: VIZTOMO, VIZVISC), and format the elastic tensors generating input files for seismological synthetics (ECOMAN-geodynamics: VIZTOMO), and
+3) test the elastic response of anisotropic media by performing seismological forward/inverse modelling and, in particular, isotropic and anisotropic seismic tomographies on synthetic and real seismic datasets (ECOMAN-seismology: SKS-SPLIT, PSI).
 
 ECOMAN is supported by the ERC StG 758199 NEWTON
 
 # General information and Installation
 
-ECOMAN is mostly written in Fortran, and where most of the routines are parallelized with shared memory architecture (OpenMP), providing good scalability with increasing number of cores.
-
-At the moment ECOMAN requires installation of the Intel Fortran compilers and HDF5 libraries.
+ECOMAN-geodynamics programs are mostly written in Fortran, and where most of the routines are parallelized with shared memory architecture (OpenMP), providing good scalability with increasing number of cores. In addition, D-REX_M is parallelized with a hybrid MPI-OpenMP architecture. 
+As a result, ECOMAN-geodynamics requires installation of the Intel Fortran compilers and HDF5 libraries.
 
 Software compilation: from the directory of each software, execute ./bash_compile
 
