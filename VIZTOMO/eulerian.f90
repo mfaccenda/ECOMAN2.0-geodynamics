@@ -59,7 +59,7 @@ DOUBLE PRECISION, DIMENSION(21) :: XE
 DOUBLE PRECISION, DIMENSION (3) :: n1,n2,n3   
 DOUBLE PRECISION, DIMENSION (3,3) :: acs     
 DOUBLE PRECISION, DIMENSION (3,3,3,3) :: cijkl
-DOUBLE PRECISION :: PwaveMod,SwaveMod,Nparam,Lparam,Gc,Gs,G3D,phi,lr,cr
+DOUBLE PRECISION :: PwaveMod,SwaveMod,Nparam,Lparam,Gc,Gs,G3D,phi,lr,cr,sfact
 DOUBLE PRECISION :: xx,yy,zz,phi1,theta,phi2,azi(3)
 DOUBLE PRECISION :: Vp01,Vp02,Vs01,Vs02,ro1,ro2,reflPP,reflSS,reflPS
 DOUBLE PRECISION :: Pcritangle
@@ -75,7 +75,7 @@ DOUBLE PRECISION, DIMENSION(:,:,:), ALLOCATABLE :: Savref
 !PSI 
 INTEGER :: num_nodes_in_longitude, num_nodes_in_latitude, num_nodes_in_radial,tf_density_normalized
 DOUBLE PRECISION :: model_radius_km, long_origin_deg, lat_origin_deg, rotation_from_north_deg
-DOUBLE PRECISION :: min_long_deg, min_lat_deg, min_elevation_km, max_long_deg, max_lat_deg, max_elevation_km
+DOUBLE PRECISION :: dlon_deg, dlat_deg, delevation_km
 
 CHARACTER (500) :: filename,filenamexmf
 CHARACTER (len=*) :: cijkl_dir,output_dir
@@ -498,18 +498,15 @@ IF(psitomomod > 0) THEN
    num_nodes_in_longitude = nx11 
    num_nodes_in_radial = nx21
    num_nodes_in_latitude = nx31 
-   min_long_deg = n1first*rad2deg 
-   max_long_deg = n1last*rad2deg 
-   min_lat_deg = 90.0d0 - n3last*rad2deg 
-   max_lat_deg = 90.0d0 - n3first*rad2deg 
-   min_elevation_km = n2first/1d3 - 6371d0 
-   max_elevation_km = n2last/1d3 - 6371d0
+   dlon_deg = (n1last - n1first)/2.0d0*rad2deg
+   dlat_deg = (n3last - n3first)/2.0d0*rad2deg
+   delevation_km = (n2last - n2first)/2.0d3
    tf_density_normalized = 0
 
    !Headers
    write(10,'(*(e12.5, ", "))') model_radius_km, long_origin_deg, lat_origin_deg, rotation_from_north_deg 
    write(10,'(*(g0, ", "))') num_nodes_in_longitude, num_nodes_in_latitude, num_nodes_in_radial        
-   write(10,'(*(e12.5, ", "))') min_long_deg, min_lat_deg, min_elevation_km, max_long_deg, max_lat_deg, max_elevation_km
+   write(10,'(*(e12.5, ", "))') dlon_deg, dlat_deg, delevation_km
    write(10,'(*(g0, ", "))') tf_density_normalized
    !Coordinates, elastic moduli, density
    !DO yyy=1,yinyang
@@ -523,26 +520,24 @@ IF(psitomomod > 0) THEN
       if(tf_density_normalized .EQ. 0) then
 
       write(10,'(*(e12.5, ", "))') X1(i1)*rad2deg, 90.0d0 - X3(i3)*rad2deg, X2(i2)/1d3 - model_radius_km,&
-      Savn(1,1,gi),Savn(1,3,gi),Savn(1,2,gi),Savn(1,4,gi),Savn(1,6,gi),Savn(1,5,gi),&
-                   Savn(3,3,gi),Savn(3,2,gi),Savn(3,4,gi),Savn(3,6,gi),Savn(3,5,gi),&
-                                Savn(2,2,gi),Savn(2,4,gi),Savn(2,6,gi),Savn(2,5,gi),&
-                                             Savn(4,4,gi),Savn(4,6,gi),Savn(4,5,gi),&
-                                                          Savn(6,6,gi),Savn(6,5,gi),&
-                                                                       Savn(5,5,gi),&
+      Savn(1,1,gi),Savn(1,2,gi),Savn(1,3,gi),Savn(1,4,gi),Savn(1,5,gi),Savn(1,6,gi),&
+                   Savn(2,2,gi),Savn(2,3,gi),Savn(2,4,gi),Savn(2,5,gi),Savn(2,6,gi),&
+                                Savn(3,3,gi),Savn(3,4,gi),Savn(3,5,gi),Savn(3,6,gi),&
+                                             Savn(4,4,gi),Savn(4,5,gi),Savn(4,6,gi),&
+                                                          Savn(5,5,gi),Savn(5,6,gi),&
+                                                                       Savn(6,6,gi),&
                                                                            Rhon(gi)  
 
       else
 
+      sfact = 1.0d9/Rhon(gi)
       write(10,'(*(e12.5, ", "))') X1(i1)*rad2deg, 90.0d0 - X3(i3)*rad2deg, X2(i2)/1d3 - model_radius_km,&
-      Savn(1,1,gi)*1.0d9/Rhon(gi),Savn(1,3,gi)*1.0d9/Rhon(gi),Savn(1,2,gi)*1.0d9/Rhon(gi),& 
-      Savn(1,4,gi)*1.0d9/Rhon(gi),Savn(1,6,gi)*1.0d9/Rhon(gi),Savn(1,5,gi)*1.0d9/Rhon(gi),&
-                                  Savn(3,3,gi)*1.0d9/Rhon(gi),Savn(3,2,gi)*1.0d9/Rhon(gi),& 
-      Savn(3,4,gi)*1.0d9/Rhon(gi),Savn(3,6,gi)*1.0d9/Rhon(gi),Savn(3,5,gi)*1.0d9/Rhon(gi),&
-                                                              Savn(2,2,gi)*1.0d9/Rhon(gi),& 
-      Savn(2,4,gi)*1.0d9/Rhon(gi),Savn(2,6,gi)*1.0d9/Rhon(gi),Savn(2,5,gi)*1.0d9/Rhon(gi),&
-      Savn(4,4,gi)*1.0d9/Rhon(gi),Savn(4,6,gi)*1.0d9/Rhon(gi),Savn(4,5,gi)*1.0d9/Rhon(gi),&
-                                  Savn(6,6,gi)*1.0d9/Rhon(gi),Savn(6,5,gi)*1.0d9/Rhon(gi),&
-                                                              Savn(5,5,gi)*1.0d9/Rhon(gi)
+      Savn(1,1,gi)*sfact,Savn(1,2,gi)*sfact,Savn(1,3,gi)*sfact,Savn(1,4,gi)*sfact,Savn(1,5,gi)*sfact,Savn(1,6,gi)*sfact,&
+                         Savn(2,2,gi)*sfact,Savn(2,3,gi)*sfact,Savn(2,4,gi)*sfact,Savn(2,5,gi)*sfact,Savn(2,6,gi)*sfact,&
+                                            Savn(3,3,gi)*sfact,Savn(3,4,gi)*sfact,Savn(3,5,gi)*sfact,Savn(3,6,gi)*sfact,&
+                                                               Savn(4,4,gi)*sfact,Savn(4,5,gi)*sfact,Savn(4,6,gi)*sfact,&
+                                                                                  Savn(5,5,gi)*sfact,Savn(5,6,gi)*sfact,&
+                                                                                                     Savn(6,6,gi)*sfact
 
       end if
          
