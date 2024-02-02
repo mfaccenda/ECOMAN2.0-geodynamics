@@ -30,7 +30,7 @@ As a result, ECOMAN-geodynamics requires installation of the Intel Fortran compi
 
 Software compilation: from the directory of each software, execute ./bash_compile
 
-More detailed information and instructions are provided in the user [manual](https://newtonproject.geoscienze.unipd.it/wp-content/uploads/2021/04/ECOMAN1.0_manual.pdf). 
+More detailed information and instructions are provided in the user [manual](https://newtonproject.geoscienze.unipd.it/wp-content/uploads/2024/02/ECOMAN2.0_manual.pdf). 
 
 # Software website
 
