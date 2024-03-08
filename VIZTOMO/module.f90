@@ -50,8 +50,13 @@
 
    INTEGER :: Tinit,Tend,Tstep,dimensions,cartspher,basicstag,x1periodic,x2periodic,x3periodic,yinyang
    INTEGER :: Lagrangian,uppermantlemod,rocktypemod,fsemod,fse3Dmod,fseminmod,fsemaxmod,TIaxismod,vpmaxmod,dvsmaxmod
+<<<<<<< HEAD
    INTEGER :: Eulerian,vpvsmod,dvpvsmod,zoeppritzmod,radialmod,azimod,reflectmod,replicateZmod,specfem3Dmod,syntomomod 
    DOUBLE PRECISION :: ln_fse_min,koef,cosx1,cosx2,cosx3,qhat(3),Incangle,pi,deg2rad
+=======
+   INTEGER :: Eulerian,vpvsmod,dvpvsmod,zoeppritzmod,radialmod,azimod,reflectmod,replicateZmod,specfem3Dmod,psitomomod 
+   DOUBLE PRECISION :: ln_fse_min,koef,cosx1,cosx2,cosx3,qhat(3),Incangle,pi,deg2rad,rad2deg
+>>>>>>> 6010c5f (VIZTOMO: psitomomod and rad2deg added)
    DOUBLE PRECISION :: aziscalex1,aziscalex2,aziscalex3
    DOUBLE PRECISION :: dt,timesum
    ! File number and domain geometry
