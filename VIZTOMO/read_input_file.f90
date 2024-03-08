@@ -153,11 +153,7 @@
    call read_par_int(15,reflectmod)
    call read_par_int(15,replicateZmod)
    call read_par_int(15,specfem3Dmod)
-<<<<<<< HEAD
-   call read_par_int(15,syntomomod)
-=======
    call read_par_int(15,psitomomod)
->>>>>>> 6010c5f (VIZTOMO: psitomomod and rad2deg added)
    if(Eulerian /= 0) then 
       write(*,*)
       write(*,"(a)"),' EULERIAN GRIDDING AND VISUALIZATION IS ACTIVE'
@@ -173,11 +169,7 @@
       write(*,"(a,i2)"),' reflectmod :     ',reflectmod
       write(*,"(a,i1)"),' replicateZmod :   ',replicateZmod
       write(*,"(a,i1)"),' specfem3Dmod :    ',specfem3Dmod
-<<<<<<< HEAD
-      write(*,"(a,i1)"),' syntomomod :      ',syntomomod
-=======
       write(*,"(a,i1)"),' psitomomod :      ',psitomomod
->>>>>>> 6010c5f (VIZTOMO: psitomomod and rad2deg added)
       write(*,*)
       write(*,"(a)"),'--------------------------------------------------------'
    end if
