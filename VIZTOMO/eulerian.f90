@@ -73,9 +73,11 @@ DOUBLE PRECISION, DIMENSION(:,:), ALLOCATABLE :: vertices,azimuthal,xyz
 DOUBLE PRECISION, DIMENSION(:,:,:), ALLOCATABLE :: Savref
 
 !PSI 
-INTEGER :: num_nodes_in_longitude, num_nodes_in_latitude, num_nodes_in_radial,tf_density_normalized
+INTEGER :: ii2,ii3,num_nodes_in_longitude, num_nodes_in_latitude, num_nodes_in_radial,tf_density_normalized
 DOUBLE PRECISION :: model_radius_km, long_origin_deg, lat_origin_deg, rotation_from_north_deg
 DOUBLE PRECISION :: dlon_deg, dlat_deg, delevation_km
+DOUBLE PRECISION :: midlon,midlat,middepth,X1s,X2s,X3s
+DOUBLE PRECISION, DIMENSION (6,6) :: Savn0    
 
 CHARACTER (500) :: filename,filenamexmf
 CHARACTER (len=*) :: cijkl_dir,output_dir
@@ -490,18 +492,33 @@ IF(psitomomod > 0) THEN
   
    OPEN(unit = 10, access = "sequential", action = "write", &
         status = "replace", file = filename, form = "formatted") 
-
-   long_origin_deg = (n1first + n1last)/2.0d0*rad2deg 
-   model_radius_km = 6371d0 !Earth's radius                 
-   lat_origin_deg  = 90.0d0 - (n3first + n3last)/2.0d0*rad2deg  
-   rotation_from_north_deg = 0.0d0
+   
    num_nodes_in_longitude = nx11 
    num_nodes_in_radial = nx21
    num_nodes_in_latitude = nx31 
-   dlon_deg = (n1last - n1first)/2.0d0*rad2deg
-   dlat_deg = (n3last - n3first)/2.0d0*rad2deg
-   delevation_km = (n2last - n2first)/2.0d3
    tf_density_normalized = 0
+   rotation_from_north_deg = 0.0d0
+
+   !Cartesian coordinates
+   if(cartspher == 1) then
+      long_origin_deg = 0.0d0                              
+      model_radius_km = 6371d0 !Earth's radius                 
+      lat_origin_deg  = 0.0d0 
+      midlon  = (n1last + n1first)/2.0d0
+      midlat   = (n3last + n3first)/2.0d0
+      middepth = 6371d3 - (n2last + n2first)/2.0d0
+      dlon_deg = (n1last - n1first)/2.0d0/middepth*rad2deg
+      dlat_deg = (n3last - n3first)/2.0d0/middepth*rad2deg
+      delevation_km = (n2last - n2first)/1.0d3
+   !Spherical coordinates
+   else
+      long_origin_deg = (n1first + n1last)/2.0d0*rad2deg 
+      model_radius_km = 6371d0 !Earth's radius                 
+      lat_origin_deg  = 90.0d0 - (n3first + n3last)/2.0d0*rad2deg  
+      dlon_deg = (n1last - n1first)/2.0d0*rad2deg
+      dlat_deg = (n3last - n3first)/2.0d0*rad2deg
+      delevation_km = (n2last - n2first)/1.0d3
+   end if
 
    !Headers
    write(10,'(*(e12.5, ", "))') model_radius_km, long_origin_deg, lat_origin_deg, rotation_from_north_deg 
@@ -512,32 +529,77 @@ IF(psitomomod > 0) THEN
    !DO yyy=1,yinyang
    yyy = 1 ! not active for global seismology
    DO i2=1,nx21
-   DO i3=nx31,1,-1 !Reverse order for onversion from colatitude (N-->S) to latitude (S-->N)
+   DO i3=1,nx31
    DO i1=1,nx11
 
-      gi = nodenum*(yyy-1) + i1 + (i2-1)*y + (i3-1)*z
-      
-      if(tf_density_normalized .EQ. 0) then
+      ii2 = i2
+      ii3 = i3
+      if(cartspher==1) ii2 = nx21 - i2 + 1 !ordered from bottom to the surface
+      if(cartspher==2) ii3 = nx31 - i3 + 1 !ordered form south to north (i.e., along latitude)
 
-      write(10,'(*(e12.5, ", "))') X1(i1)*rad2deg, 90.0d0 - X3(i3)*rad2deg, X2(i2)/1d3 - model_radius_km,&
-      Savn(1,1,gi),Savn(1,2,gi),Savn(1,3,gi),Savn(1,4,gi),Savn(1,5,gi),Savn(1,6,gi),&
-                   Savn(2,2,gi),Savn(2,3,gi),Savn(2,4,gi),Savn(2,5,gi),Savn(2,6,gi),&
-                                Savn(3,3,gi),Savn(3,4,gi),Savn(3,5,gi),Savn(3,6,gi),&
-                                             Savn(4,4,gi),Savn(4,5,gi),Savn(4,6,gi),&
-                                                          Savn(5,5,gi),Savn(5,6,gi),&
-                                                                       Savn(6,6,gi),&
-                                                                           Rhon(gi)  
+      gi = nodenum*(yyy-1) + i1 + (ii2-1)*y + (ii3-1)*z
+      
+      Savn0(:,:) = Savn(:,:,gi)
+
+      !Cartesian coordinates
+      if(cartspher == 1) then
+         X1s = (X1(i1) - midlon)/middepth
+         X3s = (X3(ii3) - midlat)/middepth
+         !Rotate the elastic tensor ito local coordinates assuming it is at the equator (phi = 0°, lat = °0)          
+         !Rotate around the X-axis by 90° to swap x2 and x3 axes
+         phi1 = 0.0d0; theta = -pi/2.0d0; phi2 = 0d0             
+
+         !Transform Euler angles into direction cosine matrix
+         CALL rotmatrixZXZ(phi1,theta,phi2,acs)
+
+         CALL rotvoigt(Savn0,acs,Savn0)
+
+         X1s = X1s*rad2deg 
+         X2s =-X2(ii2)/1d3 
+         X3s = X3s*rad2deg 
 
       else
 
-      sfact = 1.0d9/Rhon(gi)
-      write(10,'(*(e12.5, ", "))') X1(i1)*rad2deg, 90.0d0 - X3(i3)*rad2deg, X2(i2)/1d3 - model_radius_km,&
-      Savn(1,1,gi)*sfact,Savn(1,2,gi)*sfact,Savn(1,3,gi)*sfact,Savn(1,4,gi)*sfact,Savn(1,5,gi)*sfact,Savn(1,6,gi)*sfact,&
-                         Savn(2,2,gi)*sfact,Savn(2,3,gi)*sfact,Savn(2,4,gi)*sfact,Savn(2,5,gi)*sfact,Savn(2,6,gi)*sfact,&
-                                            Savn(3,3,gi)*sfact,Savn(3,4,gi)*sfact,Savn(3,5,gi)*sfact,Savn(3,6,gi)*sfact,&
-                                                               Savn(4,4,gi)*sfact,Savn(4,5,gi)*sfact,Savn(4,6,gi)*sfact,&
-                                                                                  Savn(5,5,gi)*sfact,Savn(5,6,gi)*sfact,&
-                                                                                                     Savn(6,6,gi)*sfact
+         !Rotate the elastic tensor to Z axis 
+         phi1 = 0d0; theta = -X3(ii3); phi2 = -X1(i1) + pi*1.5d0  
+         IF(yyy == 2) THEN
+            CALL yin2yang(X1(i1),X3(ii3),lr,cr)
+            theta = -cr ; phi2 = -lr + pi*1.5d0
+         END IF
+
+         !Transform Euler angles into direction cosine matrix
+         CALL rotmatrixZXZ(phi1,theta,phi2,acs)
+
+         CALL rotvoigt(Savn0,acs,Savn0)
+
+         X1s = X1(i1)*rad2deg 
+         X2s = X2(ii2)/1d3 - model_radius_km
+         X3s = 90.0d0 - X3(ii3)*rad2deg 
+
+      end if
+
+      if(tf_density_normalized .EQ. 0) then
+
+      write(10,'(*(e12.5, ", "))') X1s,X3s,X2s,&
+      Savn0(1,1),Savn0(1,2),Savn0(1,3),Savn0(1,4),Savn0(1,5),Savn0(1,6),&
+                 Savn0(2,2),Savn0(2,3),Savn0(2,4),Savn0(2,5),Savn0(2,6),&
+                            Savn0(3,3),Savn0(3,4),Savn0(3,5),Savn0(3,6),&
+                                       Savn0(4,4),Savn0(4,5),Savn0(4,6),&
+                                                  Savn0(5,5),Savn0(5,6),&
+                                                             Savn0(6,6),&
+                                                                  Rhon(gi)  
+
+      else
+
+      Savn0 = Savn0*1.0d9/Rhon(gi)
+
+      write(10,'(*(e12.5, ", "))') X1s,X3s,X2s,&
+      Savn0(1,1),Savn0(1,2),Savn0(1,3),Savn0(1,4),Savn0(1,5),Savn0(1,6),&
+                 Savn0(2,2),Savn0(2,3),Savn0(2,4),Savn0(2,5),Savn0(2,6),&
+                            Savn0(3,3),Savn0(3,4),Savn0(3,5),Savn0(3,6),&
+                                       Savn0(4,4),Savn0(4,5),Savn0(4,6),&
+                                                  Savn0(5,5),Savn0(5,6),&
+                                                             Savn0(6,6)  
 
       end if
          
@@ -2085,7 +2147,7 @@ DO m=1,marknum
       wt(gi+y+z) = wt(gi+y+z) + w
 
       IF(wt(gi) < 0d0 .OR. Savn(1,1,gi)/wt(gi) > 1500 .OR. Rhon(gi)/wt(gi) < 100) THEN  
-      print *,gi,i1,i2,i3,wt(gi),Sav(1,1,m),Savn(1,1,gi)/wt(gi),Rhon(gi)/wt(gi),X1(i1),X2(i2),X3(i3),lr,rr,cr,w
+      print *,gi,i1,i2,i3,wt(gi),Sav(1,1,m),Savn(1,1,gi)/wt(gi),rho(m),Rhon(gi)/wt(gi),X1(i1),X2(i2),X3(i3),lr,rr,cr,w
       END IF
 
       END IF
